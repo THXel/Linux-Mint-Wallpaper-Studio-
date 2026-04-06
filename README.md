@@ -95,7 +95,7 @@ Not all wallpapers work on Linux!
 
 ```bash
 cd ~/Downloads
-sudo dpkg -i mint-wallpaper-studio_0.1.37_all_htmldebugwindow.deb
+sudo dpkg -i mint-wallpaper-studio_1.0.0_all_release.deb
 sudo apt -f install
 ```
 
