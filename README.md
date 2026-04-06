@@ -1,69 +1,129 @@
-Release build: 1.0.0
+<p align="center">
+  <img src="https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Mint%20Wallpaper%20Studio%20Logo.png" width="900">
+</p>
 
-# Mint Wallpaper Studio
+<h1 align="center">🟢 Linux Mint Wallpaper Studio</h1>
 
-A modular Python wallpaper manager for Linux Mint Cinnamon/X11.
+<p align="center">
+  A modern wallpaper manager for <b>Linux Mint</b> with video wallpapers, playlists, and Wallpaper Engine sync.
+</p>
 
-## Supported
-- Local image wallpapers
-- Local video wallpapers
-- Wallpaper Engine workshop items that contain directly usable image or video files
+<p align="center">
+  <a href="#-overview">Overview</a> •
+  <a href="#-features">Features</a> •
+  <a href="#-screenshots">Screenshots</a> •
+  <a href="#-wallpaper-engine-tutorial">Tutorial</a> •
+  <a href="#-installation">Installation</a> •
+  <a href="#-usage">Usage</a>
+</p>
 
-## Not supported as live wallpapers
-- Wallpaper Engine **Scene** wallpapers
-- Wallpaper Engine **Application** wallpapers
-- Wallpaper Engine **Web/HTML** wallpapers
+---
 
-## Features
-- Tabs for All / Pictures / Videos / Wallpaper Engine
-- Playlist enable/disable per item
-- Random switching timer
-- Local library and Wallpaper Engine sync library
-- Multi-monitor playlist target selection with sync mode
-- Thumbnail preview for videos with click-to-preview popup player
-- Preview panel with file details
-- Scene Inspector for unsupported item inspection
-- Video wallpaper audio settings with volume slider and mute
-- Add Media window with file/folder import and drag & drop support when `tkinterdnd2` is available
+## 📌 Overview
 
-## Recommended install (Linux Mint / Ubuntu)
+**Linux Mint Wallpaper Studio** is a powerful wallpaper manager designed specifically for Linux Mint.
 
-Install system packages:
+It allows you to manage:
+- 🖼️ images  
+- 🎥 videos  
+- 📂 playlists  
+- 🔄 Wallpaper Engine content  
+
+All inside a clean and modern UI.
+
+---
+
+## 🚀 Features
+
+- 🖼️ Image wallpapers  
+- 🎥 Video wallpapers  
+- 🔄 Wallpaper Engine sync  
+- 📂 Playlist system  
+- 🎲 Random switching  
+- 👀 Live preview  
+- 🧩 Thumbnails  
+- ▶️ Popup preview  
+- 🖥️ Multi-monitor  
+- 🔊 Audio control  
+- 🖱️ Drag & drop  
+- 🔍 Scene inspector  
+
+---
+
+## 🖼️ Screenshots
+
+### 🧠 Main UI
+![UI](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/UI_Screenshot.png)
+
+### ⚙️ Options
+![Options](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/Option_Screenshot.png)
+
+### 🔄 Sync Window
+![Sync](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/WallpaerEngineSync_Screenshot.png)
+
+---
+
+## 🎮 Wallpaper Engine Tutorial
+
+### 🔍 Step 1: Search
+![Search](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/Wallpaper_Engine_Screenshot_1.png)
+
+➡️ Look for:
+- Videos
+- Simple wallpapers
+
+---
+
+### 🎛️ Step 2: Filter
+![Filter](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/Wallpaper_Engine_Screenshot_2.png)
+
+✔️ Enable:
+- Video  
+
+❌ Avoid:
+- Scene
+- Application
+
+---
+
+### ⚠️ Important
+Not all wallpapers work on Linux!
+
+---
+
+## 📦 Installation
 
 ```bash
-sudo apt install python3-full python3-tk mpv ffmpeg ffmpegthumbnailer
+cd ~/Downloads
+sudo dpkg -i mint-wallpaper-studio_0.1.37_all_htmldebugwindow.deb
+sudo apt -f install
 ```
 
-Start the app with the bundled launcher:
-
+Run:
 ```bash
-chmod +x run.sh
-./run.sh
+mint-wallpaper-studio
 ```
 
-The launcher will:
-- create a local `.venv`
-- install Python dependencies from `requirements.txt`
-- start the app
+---
 
-## Manual install
+## 🧠 Usage
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python main.py
-```
+1. Add media  
+2. Preview  
+3. Create playlist  
+4. Select monitor  
+5. Start  
 
-## Notes
-- `xwinwrap` and `mpv` are required for video wallpapers.
-- `python3-tk` is required for the Tk interface.
-- `ffmpegthumbnailer` or `ffmpeg` is used for video thumbnails.
-- `tkinterdnd2` enables drag & drop in the Add Media window.
-- Unsupported Wallpaper Engine item types can be hidden during sync.
+---
 
-## Run
+## ⚠️ Limitations
 
-```bash
-./run.sh
-```
+- Scene wallpapers not supported  
+- Web wallpapers limited  
+- Application wallpapers not supported  
+
+---
+
+## 👑 Author
+
+THXel
