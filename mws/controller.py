@@ -27,6 +27,21 @@ class WallpaperController:
         self.video_volume = max(0, min(100, volume))
         self.video_mute = bool(mute)
 
+    def reapply_current_video_with_audio(self) -> bool:
+        item = self.current_item
+        if not item or item.media_type != "video":
+            return False
+
+        path = item.path
+        if not path:
+            return False
+
+        try:
+            self.set_video(path)
+            return True
+        except Exception:
+            return False
+
     def stop_video(self) -> None:
         procs = [p for p in (self.video_proc, self.html_proc) if p is not None]
         self.video_proc = None

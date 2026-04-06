@@ -3176,7 +3176,16 @@ X-GNOME-WMClass=MintWallpaperStudio
         ttk.Button(action_row, text="Quit All Instances", command=self.quit_all_instances).pack(side="left", padx=(8, 0))
 
         playback_box = section(grid, "Video wallpaper audio", 0, 1)
-        ttk.Checkbutton(playback_box, text="Mute video audio by default", variable=mute_var).pack(anchor="w", padx=10, pady=(8, 4))
+        ttk.Checkbutton(
+            playback_box,
+            text="Mute video audio by default",
+            variable=mute_var,
+            command=lambda: self._apply_audio_settings(
+                volume=int(volume_var.get()),
+                mute=bool(mute_var.get()),
+                save=False
+            ),
+        ).pack(anchor="w", padx=10, pady=(8, 4))
         vol_row = ttk.Frame(playback_box)
         vol_row.pack(fill="x", padx=10, pady=(0, 8))
         ttk.Label(vol_row, text="Default video volume", style="PanelBody.TLabel").pack(side="left")
@@ -3186,7 +3195,15 @@ X-GNOME-WMClass=MintWallpaperStudio
             to=100,
             variable=volume_var,
             orient="horizontal",
-            command=lambda _=None: self.controller.set_audio_options(int(volume_var.get()), bool(mute_var.get())),
+            command=lambda _=None: (
+                self._apply_audio_settings(
+                    volume=int(volume_var.get()),
+                    mute=bool(mute_var.get()),
+                    save=False,
+                    reapply=False
+                ),
+                self._queue_audio_reapply()
+            ),
         ).pack(side="left", fill="x", expand=True, padx=(12, 12))
         ttk.Label(vol_row, textvariable=volume_var, style="PanelMuted.TLabel", width=4).pack(side="left")
 
@@ -4085,28 +4102,78 @@ X-GNOME-Autostart-enabled=true
         except Exception:
             pass
 
-    def _apply_audio_settings(self, volume: int | None = None, mute: bool | None = None, save: bool = True):
+    def _apply_audio_settings(self, volume: int | None = None, mute: bool | None = None, save: bool = True, reapply: bool = True):
         current_volume = int(self.store.data.get("video_volume", 35))
         current_mute = bool(self.store.data.get("video_mute", True))
+
         if volume is None:
             volume = current_volume
         if mute is None:
             mute = current_mute
+
         try:
             volume = int(volume)
         except Exception:
             volume = current_volume
+
         volume = max(0, min(100, volume))
         mute = bool(mute)
+
+        changed = (
+            volume != int(self.store.data.get("video_volume", 35)) or
+            mute != bool(self.store.data.get("video_mute", True))
+        )
+
         self.store.data["video_volume"] = volume
         self.store.data["video_mute"] = mute
         self.controller.set_audio_options(volume, mute)
+
+        if changed and reapply:
+            try:
+                self.controller.reapply_current_video_with_audio()
+            except Exception:
+                pass
+
         if save:
             self.store.save()
+
         mode = "muted" if mute else f"volume {volume}%"
         self.set_status(f"Video audio set to {mode}.")
         if not getattr(self, "tray_volume_win", None):
             self._update_tray_menu()
+
+    def _queue_audio_reapply(self, delay_ms: int = 220):
+        try:
+            pending = getattr(self, "_audio_reapply_after_id", None)
+            if pending:
+                self.root.after_cancel(pending)
+        except Exception:
+            pass
+
+        def run():
+            self._audio_reapply_after_id = None
+            try:
+                self.controller.reapply_current_video_with_audio()
+            except Exception:
+                pass
+
+        try:
+            self._audio_reapply_after_id = self.root.after(delay_ms, run)
+        except Exception:
+            run()
+
+    def _flush_audio_reapply(self):
+        try:
+            pending = getattr(self, "_audio_reapply_after_id", None)
+            if pending:
+                self.root.after_cancel(pending)
+                self._audio_reapply_after_id = None
+        except Exception:
+            pass
+        try:
+            self.controller.reapply_current_video_with_audio()
+        except Exception:
+            pass
 
     def set_tray_mute(self, mute: bool):
         self._apply_audio_settings(mute=bool(mute))
@@ -4219,29 +4286,32 @@ X-GNOME-Autostart-enabled=true
             value = int(round(float(scale.get())))
             volume_var.set(value)
             value_var.set(f"{value}%")
-            self._apply_audio_settings(volume=value, mute=bool(mute_var.get()), save=False)
+            self._apply_audio_settings(volume=value, mute=bool(mute_var.get()), save=False, reapply=False)
+            self._queue_audio_reapply()
 
         scale.configure(command=lambda _=None: apply_from_scale())
+        scale.bind("<ButtonRelease-1>", lambda _evt: self._flush_audio_reapply())
 
         mute_btn = ttk.Checkbutton(frame, text="Mute wallpaper audio", variable=mute_var)
         mute_btn.pack(anchor="w", pady=(12, 8))
 
         def on_mute_changed(*_):
             muted = bool(mute_var.get())
-            self._apply_audio_settings(volume=int(volume_var.get()), mute=muted, save=False)
+            self._apply_audio_settings(volume=int(volume_var.get()), mute=muted, save=False, reapply=True)
 
         mute_var.trace_add("write", on_mute_changed)
 
         quick = ttk.Frame(frame)
         quick.pack(fill="x", pady=(2, 0))
         for idx, lvl in enumerate((0, 25, 50, 75, 100)):
-            ttk.Button(quick, text=f"{lvl}%", command=lambda v=lvl: (scale.set(v), apply_from_scale())).grid(row=0, column=idx, padx=(0 if idx == 0 else 6, 0), sticky="ew")
+            ttk.Button(quick, text=f"{lvl}%", command=lambda v=lvl: (scale.set(v), apply_from_scale(), self._flush_audio_reapply())).grid(row=0, column=idx, padx=(0 if idx == 0 else 6, 0), sticky="ew")
             quick.columnconfigure(idx, weight=1)
 
         actions = ttk.Frame(frame)
         actions.pack(fill="x", pady=(14, 0))
 
         def finish_and_close():
+            self._flush_audio_reapply()
             self._save_audio_only()
             self._update_tray_menu()
             self._close_tray_volume_window()
@@ -4250,6 +4320,7 @@ X-GNOME-Autostart-enabled=true
         ttk.Button(actions, text="Save", command=finish_and_close).pack(side="right", padx=(0, 8))
 
         def on_close():
+            self._flush_audio_reapply()
             self._save_audio_only()
             self._update_tray_menu()
             self._close_tray_volume_window()

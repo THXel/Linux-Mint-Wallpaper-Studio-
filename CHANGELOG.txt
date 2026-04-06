@@ -1,3 +1,7 @@
+v1.0.2
+- Fixed video audio slider reloading the wallpaper continuously while dragging.
+- Audio changes are now applied once after slider movement settles or when released.
+
 Mint Wallpaper Studio 1.0.0
 
 Highlights
