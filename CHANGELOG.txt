@@ -1,0 +1,17 @@
+Mint Wallpaper Studio 1.0.0
+
+Highlights
+- Images, videos and HTML wallpapers
+- Wallpaper Engine sync with review popup
+- HTML desktop mode for web wallpapers
+- Tray/appindicator integration
+- Fullscreen auto-pause for video wallpapers
+- Playlist and random playback
+- Volume and mute controls
+- Linux Mint friendly desktop integration
+
+Recent polish
+- HTML playback stabilized and integrated into playlist/random state handling
+- Wallpaper Engine Sync dialog sizing and wording polished
+- Options window sizing improved
+- Desktop file and package metadata refreshed
