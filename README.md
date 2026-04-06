@@ -10,16 +10,16 @@
 </p>
 
 <p align="center">
-  <a href="#-overview">Overview</a> •
-  <a href="#-table-of-contents">Table of Contents</a> •
-  <a href="#-screenshots">Screenshots</a> •
-  <a href="#-download">Download</a> •
-  <a href="#-installation">Installation</a> •
-  <a href="#-deinstallation">Deinstallation</a> •
-  <a href="#-dependencies--required-packages">Dependencies</a> •
-  <a href="#-wallpaper-engine-tutorial">Wallpaper Engine Tutorial</a> •
-  <a href="#-usage-guide">Usage</a> •
-  <a href="#-troubleshooting">Troubleshooting</a>
+  <a href="#overview">Overview</a> •
+  <a href="#table-of-contents">Table of Contents</a> •
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#download">Download</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#deinstallation">Deinstallation</a> •
+  <a href="#dependencies">Dependencies</a> •
+  <a href="#wallpaper-engine-tutorial">Wallpaper Engine Tutorial</a> •
+  <a href="#usage-guide">Usage</a> •
+  <a href="#troubleshooting">Troubleshooting</a>
 </p>
 
 <p align="center">
@@ -30,6 +30,8 @@
 </p>
 
 ---
+
+<a id="overview"></a>
 
 ## 📌 Overview
 
@@ -52,29 +54,31 @@ It aims to make animated wallpapers on Linux Mint easier to use without needing 
 
 ---
 
+<a id="table-of-contents"></a>
+
 ## 📚 Table of Contents
 
-- [📌 Overview](#-overview)
+- [📌 Overview](#overview)
 - [✨ Main Features](#-main-features)
-- [🖼️ Screenshots](#️-screenshots)
-- [📥 Download](#-download)
-- [📦 Installation](#-installation)
-- [🗑️ Deinstallation](#-deinstallation)
-- [🧩 Dependencies / Required Packages](#-dependencies--required-packages)
-- [🐍 Python / Runtime Notes](#-python--runtime-notes)
-- [⚡ Optional One-Line Install Command](#-optional-one-line-install-command)
-- [🎮 Wallpaper Engine Tutorial](#-wallpaper-engine-tutorial)
-- [🧠 Supported Wallpaper Types](#-supported-wallpaper-types)
-- [🚫 Unsupported Wallpaper Types](#-unsupported-wallpaper-types)
-- [🧭 Usage Guide](#-usage-guide)
-- [🛠️ Feature Breakdown](#️-feature-breakdown)
-- [⚠️ Known Limitations](#️-known-limitations)
-- [🧯 Troubleshooting](#-troubleshooting)
-- [🚧 Project Status](#-project-status)
-- [🤝 Contributing](#-contributing)
-- [🐞 Issues and Feedback](#-issues-and-feedback)
-- [📜 License](#-license)
-- [👑 Author](#-author)
+- [🖼️ Screenshots](#screenshots)
+- [📥 Download](#download)
+- [📦 Installation](#installation)
+- [🗑️ Deinstallation](#deinstallation)
+- [🧩 Dependencies / Required Packages](#dependencies)
+- [🐍 Python / Runtime Notes](#python-runtime-notes)
+- [⚡ Optional One-Line Install Command](#optional-one-line-install-command)
+- [🎮 Wallpaper Engine Tutorial](#wallpaper-engine-tutorial)
+- [🧠 Supported Wallpaper Types](#supported-wallpaper-types)
+- [🚫 Unsupported Wallpaper Types](#unsupported-wallpaper-types)
+- [🧭 Usage Guide](#usage-guide)
+- [🛠️ Feature Breakdown](#feature-breakdown)
+- [⚠️ Known Limitations](#known-limitations)
+- [🧯 Troubleshooting](#troubleshooting)
+- [🚧 Project Status](#project-status)
+- [🤝 Contributing](#contributing)
+- [🐞 Issues and Feedback](#issues-and-feedback)
+- [📜 License](#license)
+- [👑 Author](#author)
 
 ---
 
@@ -102,6 +106,8 @@ Linux Mint Wallpaper Studio includes the following core features:
 - 🪟 **Improved multi-instance handling**
 
 ---
+
+<a id="screenshots"></a>
 
 ## 🖼️ Screenshots
 
@@ -145,6 +151,8 @@ This screenshot shows useful filter settings when searching for compatible conte
 
 ---
 
+<a id="download"></a>
+
 ## 📥 Download
 
 ### Recommended release file
@@ -163,7 +171,7 @@ mint-wallpaper-studio_1.0.0_all_release.deb
 
 ### Where to download it
 
-The recommended place to download the release is the **GitHub repository / releases section** of this project.
+The recommended place to download the release is the **GitHub Releases section** of this project.
 
 You can place the downloaded `.deb` file in your `Downloads` folder and install it from there.
 
@@ -174,6 +182,8 @@ mint-wallpaper-studio_1.0.0_all_release.deb
 ```
 
 ---
+
+<a id="installation"></a>
 
 ## 📦 Installation
 
@@ -229,32 +239,38 @@ sudo apt -f install
 
 ---
 
+<a id="deinstallation"></a>
+
 ## 🗑️ Deinstallation
 
-### Standard
+If you want to remove **Linux Mint Wallpaper Studio**, you can uninstall it with the package manager.
+
+### Standard removal
 
 ```bash
 sudo apt remove mint-wallpaper-studio
 ```
 
-### Komplett entfernen
+### Full removal including config files
 
 ```bash
 sudo apt purge mint-wallpaper-studio
 ```
 
-### Nicht mehr benötigte Pakete entfernen
+### Remove no longer needed packages
 
 ```bash
 sudo apt autoremove
 ```
 
-### Hinweis
+### Important note
 
-- Deine Wallpaper bleiben erhalten
-- Konfigurationsdateien ggf. manuell löschen
+- Your own wallpaper files and imported media are **not** removed automatically.
+- If you want to fully clean everything up, also delete any custom wallpaper folders and remaining config files manually.
 
 ---
+
+<a id="dependencies"></a>
 
 ## 🧩 Dependencies / Required Packages
 
@@ -287,6 +303,8 @@ These are the required packages for the current release package and cover:
 
 ---
 
+<a id="python-runtime-notes"></a>
+
 ## 🐍 Python / Runtime Notes
 
 Linux Mint Wallpaper Studio is packaged as a `.deb`, so the recommended way to install it is through the package itself.
@@ -317,6 +335,8 @@ If your setup needs it manually, you can install it separately, but it is not pa
 
 ---
 
+<a id="optional-one-line-install-command"></a>
+
 ## ⚡ Optional One-Line Install Command
 
 If you want to install all required packages manually before installing the `.deb`, use:
@@ -339,6 +359,8 @@ sudo apt -f install
 ```
 
 ---
+
+<a id="wallpaper-engine-tutorial"></a>
 
 ## 🎮 Wallpaper Engine Tutorial
 
@@ -434,6 +456,8 @@ This helps avoid importing unsupported or unsuitable content into active use.
 
 ---
 
+<a id="supported-wallpaper-types"></a>
+
 ## 🧠 Supported Wallpaper Types
 
 ### ✅ Supported
@@ -449,6 +473,8 @@ The following wallpaper types are supported:
 These are the most reliable content types for playback in Linux Mint Wallpaper Studio.
 
 ---
+
+<a id="unsupported-wallpaper-types"></a>
 
 ## 🚫 Unsupported Wallpaper Types
 
@@ -470,6 +496,8 @@ Some unsupported items may still be:
 but they are not guaranteed to behave like Windows Wallpaper Engine live wallpapers.
 
 ---
+
+<a id="usage-guide"></a>
 
 ## 🧭 Usage Guide
 
@@ -518,6 +546,8 @@ mint-wallpaper-studio
 ```
 
 ---
+
+<a id="feature-breakdown"></a>
 
 ## 🛠️ Feature Breakdown
 
@@ -571,6 +601,8 @@ Control the app through the system tray.
 
 ---
 
+<a id="known-limitations"></a>
+
 ## ⚠️ Known Limitations
 
 - Scene wallpapers are not supported as native live wallpapers
@@ -584,6 +616,8 @@ Control the app through the system tray.
   - embedded desktop window behavior
 
 ---
+
+<a id="troubleshooting"></a>
 
 ## 🧯 Troubleshooting
 
@@ -620,6 +654,8 @@ Check:
 
 ---
 
+<a id="project-status"></a>
+
 ## 🚧 Project Status
 
 This project is actively developed and improved.
@@ -635,6 +671,8 @@ Current focus areas include:
 
 ---
 
+<a id="contributing"></a>
+
 ## 🤝 Contributing
 
 Contributions, ideas, bug reports, and feedback are welcome.
@@ -649,6 +687,8 @@ You can help by:
 - helping refine Wallpaper Engine support behavior
 
 ---
+
+<a id="issues-and-feedback"></a>
 
 ## 🐞 Issues and Feedback
 
@@ -667,6 +707,8 @@ If something does not work correctly, please include as much detail as possible:
 
 ---
 
+<a id="license"></a>
+
 ## 📜 License
 
 Add your preferred license here, for example:
@@ -677,7 +719,8 @@ Add your preferred license here, for example:
 
 ---
 
+<a id="author"></a>
+
 ## 👑 Author
 
 Created by **THXel**
-
