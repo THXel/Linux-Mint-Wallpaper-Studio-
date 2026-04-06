@@ -15,6 +15,7 @@
   <a href="#-screenshots">Screenshots</a> •
   <a href="#-download">Download</a> •
   <a href="#-installation">Installation</a> •
+  <a href="#-deinstallation">Deinstallation</a> •
   <a href="#-dependencies--required-packages">Dependencies</a> •
   <a href="#-wallpaper-engine-tutorial">Wallpaper Engine Tutorial</a> •
   <a href="#-usage-guide">Usage</a> •
@@ -58,6 +59,7 @@ It aims to make animated wallpapers on Linux Mint easier to use without needing 
 - [🖼️ Screenshots](#️-screenshots)
 - [📥 Download](#-download)
 - [📦 Installation](#-installation)
+- [🗑️ Deinstallation](#-deinstallation)
 - [🧩 Dependencies / Required Packages](#-dependencies--required-packages)
 - [🐍 Python / Runtime Notes](#-python--runtime-notes)
 - [⚡ Optional One-Line Install Command](#-optional-one-line-install-command)
@@ -149,6 +151,12 @@ This screenshot shows useful filter settings when searching for compatible conte
 
 Download the current release package:
 
+👉 **Direct download:**  
+https://github.com/THXel/Linux-Mint-Wallpaper-Studio-/releases/download/v1.0.0/mint-wallpaper-studio_1.0.0_all_release.deb
+
+👉 **GitHub Releases:**  
+https://github.com/THXel/Linux-Mint-Wallpaper-Studio-/releases
+
 ```text
 mint-wallpaper-studio_1.0.0_all_release.deb
 ```
@@ -218,6 +226,33 @@ cd ~/Downloads
 sudo dpkg -i mint-wallpaper-studio_1.0.0_all_release.deb
 sudo apt -f install
 ```
+
+---
+
+## 🗑️ Deinstallation
+
+### Standard
+
+```bash
+sudo apt remove mint-wallpaper-studio
+```
+
+### Komplett entfernen
+
+```bash
+sudo apt purge mint-wallpaper-studio
+```
+
+### Nicht mehr benötigte Pakete entfernen
+
+```bash
+sudo apt autoremove
+```
+
+### Hinweis
+
+- Deine Wallpaper bleiben erhalten
+- Konfigurationsdateien ggf. manuell löschen
 
 ---
 
@@ -645,3 +680,4 @@ Add your preferred license here, for example:
 ## 👑 Author
 
 Created by **THXel**
+
