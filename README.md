@@ -5,27 +5,25 @@
 <h1 align="center">🟢 Linux Mint Wallpaper Studio</h1>
 
 <p align="center">
-  A modern wallpaper manager for <b>Linux Mint</b> with support for local image wallpapers, video wallpapers,
-  playlists, preview tools, Wallpaper Engine workshop sync, and desktop integration.
+  A modern wallpaper manager for <b>Linux Mint</b> with support for image wallpapers, video wallpapers,
+  playlists, Wallpaper Engine import, HTML wallpapers, experimental application wallpapers, and improved multi-monitor behavior.
 </p>
 
 <p align="center">
   <a href="#overview">Overview</a> •
-  <a href="#table-of-contents">Table of Contents</a> •
   <a href="#screenshots">Screenshots</a> •
   <a href="#download">Download</a> •
   <a href="#installation">Installation</a> •
-  <a href="#deinstallation">Deinstallation</a> •
-  <a href="#dependencies">Dependencies</a> •
-  <a href="#wallpaper-engine-tutorial">Wallpaper Engine Tutorial</a> •
-  <a href="#usage-guide">Usage</a> •
+  <a href="#features">Features</a> •
+  <a href="#wallpaper-engine">Wallpaper Engine</a> •
+  <a href="#notes">Notes</a> •
   <a href="#troubleshooting">Troubleshooting</a>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Linux-Mint-87CF3E?style=for-the-badge&logo=linuxmint&logoColor=white" alt="Linux Mint">
   <img src="https://img.shields.io/badge/Python-3.x-blue?style=for-the-badge&logo=python" alt="Python">
-  <img src="https://img.shields.io/badge/Version-1.0.0-green?style=for-the-badge" alt="Version 1.0.0">
+  <img src="https://img.shields.io/badge/Version-1.1.0-green?style=for-the-badge" alt="Version 1.1.0">
   <img src="https://img.shields.io/badge/Status-Release-brightgreen?style=for-the-badge" alt="Release">
 </p>
 
@@ -35,44 +33,40 @@
 
 ## 📌 Overview
 
-**Linux Mint Wallpaper Studio** is a wallpaper manager built for **Linux Mint** with a focus on a clean UI, simple workflow, and support for both static and animated wallpapers.
+**Linux Mint Wallpaper Studio** is a wallpaper manager built for **Linux Mint**, focused on a clean UI, a practical workflow, and support for both static and animated wallpapers.
 
-The app is designed to help you manage:
+It is designed to make wallpapers on Linux Mint easier to manage without requiring a complicated setup.
+
+Main supported content includes:
 
 - 🖼️ local image wallpapers
 - 🎥 local video wallpapers
+- 🌐 HTML wallpapers
+- 🧪 experimental application wallpapers
 - 📂 playlists
-- 🎲 random wallpaper switching
-- 👀 preview tools
-- 🔄 Wallpaper Engine workshop sync for compatible items
-- 🖥️ multi-monitor behavior
-- 🔊 audio controls for video wallpapers
+- 🎲 automatic wallpaper changing
+- 🔄 Wallpaper Engine workshop import for compatible items
+- 🖥️ improved multi-monitor handling
+- 🔊 per-monitor audio control
 - ⏸️ fullscreen pause behavior
-- 🌐 desktop HTML mode support
-
-It aims to make animated wallpapers on Linux Mint easier to use without needing a complicated setup.
+- 🧺 tray integration
 
 ---
-
-<a id="table-of-contents"></a>
 
 ## 📚 Table of Contents
 
 - [📌 Overview](#overview)
-- [✨ Main Features](#-main-features)
+- [✨ Main Features](#features)
 - [🖼️ Screenshots](#screenshots)
 - [📥 Download](#download)
 - [📦 Installation](#installation)
 - [🗑️ Deinstallation](#deinstallation)
-- [🧩 Dependencies / Required Packages](#dependencies)
-- [🐍 Python / Runtime Notes](#python-runtime-notes)
-- [⚡ Optional One-Line Install Command](#optional-one-line-install-command)
-- [🎮 Wallpaper Engine Tutorial](#wallpaper-engine-tutorial)
+- [🧩 Dependencies](#dependencies)
+- [🎮 Wallpaper Engine](#wallpaper-engine)
 - [🧠 Supported Wallpaper Types](#supported-wallpaper-types)
-- [🚫 Unsupported Wallpaper Types](#unsupported-wallpaper-types)
+- [🚫 Unsupported / Limited Content](#unsupported)
 - [🧭 Usage Guide](#usage-guide)
-- [🛠️ Feature Breakdown](#feature-breakdown)
-- [⚠️ Known Limitations](#known-limitations)
+- [⚠️ Notes](#notes)
 - [🧯 Troubleshooting](#troubleshooting)
 - [🚧 Project Status](#project-status)
 - [🤝 Contributing](#contributing)
@@ -82,28 +76,42 @@ It aims to make animated wallpapers on Linux Mint easier to use without needing 
 
 ---
 
+<a id="features"></a>
+
 ## ✨ Main Features
 
-Linux Mint Wallpaper Studio includes the following core features:
+### Core features
 
 - 🖼️ **Local image wallpapers**
 - 🎥 **Local video wallpapers**
-- 🔄 **Wallpaper Engine sync** for compatible workshop items
+- 🌐 **HTML wallpapers**
+- 🧪 **Experimental application wallpapers**
+- 🔄 **Wallpaper Engine import** for compatible workshop items
 - 📂 **Playlist management**
-- 🎲 **Random wallpaper switching** with timer support
-- 👀 **Preview panel** with file details
-- 🧩 **Thumbnail previews** for video files
-- ▶️ **Click-to-preview popup player**
-- 🖥️ **Multi-monitor playlist target selection**
-- 🔁 **Sync mode support** for monitors
-- 🔊 **Audio controls** including mute and volume slider
-- ➕ **Add Media window** for files and folders
-- 🖱️ **Drag & drop support** when `tkinterdnd2` is available
-- 🔍 **Scene Inspector** for unsupported Wallpaper Engine items
-- 🌐 **Desktop HTML mode**
-- ⏸️ **Fullscreen pause support**
+- 🎲 **Random wallpaper switching**
+- 👀 **Preview panel** and click-to-preview tools
+- 🖥️ **Multi-monitor support**
+- 🔁 **Monitor modes**
+  - **Same on all monitors**
+  - **Different per monitor**
+  - **Stretch across monitors**
+- 🔊 **Per-monitor audio control**
+- ⏸️ **Fullscreen auto-pause**
 - 🧺 **Tray integration**
-- 🪟 **Improved multi-instance handling**
+- ⚙️ **Managed Wine runtime tools** for application wallpapers
+
+### What improved since v1.0.0
+
+- much better multi-monitor logic
+- cleaner monitor-aware UI behavior
+- more reliable per-monitor auto change
+- better video wallpaper handling
+- improved fullscreen pause behavior
+- better audio monitor selection and saving
+- improved HTML wallpaper integration
+- experimental application wallpaper workflow
+- reworked settings window
+- better tray behavior and background workflow
 
 ---
 
@@ -113,23 +121,17 @@ Linux Mint Wallpaper Studio includes the following core features:
 
 ### 🧠 Main UI
 
-The main library window shows your wallpapers, preview area, controls, playlists, and media management tools.
-
 ![UI Screenshot](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/UI_Screenshot.png)
 
 ---
 
 ### ⚙️ Options
 
-The options window contains important settings for startup behavior, playback behavior, syncing, fullscreen pause handling, tray behavior, and other app preferences.
-
 ![Options Screenshot](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/Option_Screenshot.png)
 
 ---
 
-### 🔄 Wallpaper Engine Sync Window
-
-The sync window helps you browse compatible workshop content and import supported wallpapers into the application.
+### 🔄 Wallpaper Engine Sync
 
 ![Wallpaper Engine Sync Screenshot](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/WallpaerEngineSync_Screenshot.png)
 
@@ -137,15 +139,11 @@ The sync window helps you browse compatible workshop content and import supporte
 
 ### 🔍 Wallpaper Engine Search Example
 
-This screenshot shows the kind of content you should look for before syncing.
-
 ![Wallpaper Engine Search Screenshot](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/Wallpaper_Engine_Screenshot_1.png)
 
 ---
 
 ### 🎛️ Wallpaper Engine Filter Example
-
-This screenshot shows useful filter settings when searching for compatible content.
 
 ![Wallpaper Engine Filter Screenshot](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/Wallpaper_Engine_Screenshot_2.png)
 
@@ -157,28 +155,15 @@ This screenshot shows useful filter settings when searching for compatible conte
 
 ### Recommended release file
 
-Download the current release package:
-
-👉 **Direct download:**  
-https://github.com/THXel/Linux-Mint-Wallpaper-Studio-/releases/download/v1.0.0/mint-wallpaper-studio_1.0.0_all_release.deb
+Download the latest release package from the GitHub Releases page.
 
 👉 **GitHub Releases:**  
 https://github.com/THXel/Linux-Mint-Wallpaper-Studio-/releases
 
-```text
-mint-wallpaper-studio_1.0.0_all_release.deb
-```
-
-### Where to download it
-
-The recommended place to download the release is the **GitHub Releases section** of this project.
-
-You can place the downloaded `.deb` file in your `Downloads` folder and install it from there.
-
-Example expected filename:
+Recommended release filename:
 
 ```text
-mint-wallpaper-studio_1.0.0_all_release.deb
+mint-wallpaper-studio_1.1.0_final.deb
 ```
 
 ---
@@ -189,52 +174,41 @@ mint-wallpaper-studio_1.0.0_all_release.deb
 
 ### 1) Download the `.deb` file
 
-Download:
-
-```text
-mint-wallpaper-studio_1.0.0_all_release.deb
-```
-
-and save it somewhere easy to access, for example:
+Download the current release and save it somewhere easy to access, for example:
 
 ```text
 ~/Downloads
 ```
 
----
-
 ### 2) Install the package
-
-Open a terminal and run:
 
 ```bash
 cd ~/Downloads
-sudo dpkg -i mint-wallpaper-studio_1.0.0_all_release.deb
+sudo apt install ./mint-wallpaper-studio_1.1.0_final.deb
+```
+
+If needed, you can also use:
+
+```bash
+sudo dpkg -i mint-wallpaper-studio_1.1.0_final.deb
 sudo apt -f install
 ```
 
-This installs the package and then lets APT resolve any missing dependencies automatically.
-
----
-
 ### 3) Start the application
 
-You can launch the app from the Linux Mint application menu, or start it manually with:
+Start it from the Linux Mint application menu, or run:
 
 ```bash
 mint-wallpaper-studio
 ```
 
----
+### 4) Update from an older version
 
-### 4) If you update from an older version
-
-Just install the newer `.deb` package over the existing version:
+Install the newer `.deb` over the old one:
 
 ```bash
 cd ~/Downloads
-sudo dpkg -i mint-wallpaper-studio_1.0.0_all_release.deb
-sudo apt -f install
+sudo apt install ./mint-wallpaper-studio_1.1.0_final.deb
 ```
 
 ---
@@ -242,8 +216,6 @@ sudo apt -f install
 <a id="deinstallation"></a>
 
 ## 🗑️ Deinstallation
-
-If you want to remove **Linux Mint Wallpaper Studio**, you can uninstall it with the package manager.
 
 ### Standard removal
 
@@ -263,18 +235,26 @@ sudo apt purge mint-wallpaper-studio
 sudo apt autoremove
 ```
 
-### Important note
-
-- Your own wallpaper files and imported media are **not** removed automatically.
-- If you want to fully clean everything up, also delete any custom wallpaper folders and remaining config files manually.
-
 ---
 
 <a id="dependencies"></a>
 
-## 🧩 Dependencies / Required Packages
+## 🧩 Dependencies
 
-The release package depends on the following system packages:
+The release package depends on system packages required for:
+
+- Python runtime
+- Tk GUI
+- image handling
+- tray integration
+- GTK / GI bindings
+- video playback
+- X11 utilities
+- window management
+- notifications
+- embedded web / HTML support
+
+Typical required packages include:
 
 - `python3`
 - `python3-tk`
@@ -284,175 +264,52 @@ The release package depends on the following system packages:
 - `mpv`
 - `x11-utils`
 - `wmctrl`
+- `xwallpaper`
+- `xdotool`
 - `gir1.2-ayatanaappindicator3-0.1`
 - `libnotify-bin`
 - `gir1.2-webkit2-4.1`
 
-These are the required packages for the current release package and cover:
+Optional tools for application wallpapers:
 
-- the Python runtime
-- the Tk GUI
-- image handling
-- system tray support
-- GTK / GI bindings
-- video playback
-- X11 integration
-- window control
-- notifications
-- embedded web / HTML components
+- `wine`
+- `winetricks`
 
 ---
 
-<a id="python-runtime-notes"></a>
+<a id="wallpaper-engine"></a>
 
-## 🐍 Python / Runtime Notes
+## 🎮 Wallpaper Engine
 
-Linux Mint Wallpaper Studio is packaged as a `.deb`, so the recommended way to install it is through the package itself.
-
-That means in normal use you usually **do not need to manually install Python modules with pip**.
-
-The package relies on the Linux / Debian-style system packages listed above.
-
-### What these packages are used for
-
-- `python3` → Python runtime
-- `python3-tk` → Tkinter GUI
-- `python3-pil` → image processing / thumbnails
-- `python3-pystray` → tray icon support
-- `python3-gi` → GTK / GI integration
-- `mpv` → video wallpaper playback
-- `x11-utils` → X11 helper tools
-- `wmctrl` → window management behavior
-- `gir1.2-ayatanaappindicator3-0.1` → tray/appindicator integration
-- `libnotify-bin` → desktop notifications
-- `gir1.2-webkit2-4.1` → web / HTML integration
-
-### Optional drag & drop note
-
-Drag & drop support may use `tkinterdnd2` when available.
-
-If your setup needs it manually, you can install it separately, but it is not part of the required `.deb` dependency list shown above.
-
----
-
-<a id="optional-one-line-install-command"></a>
-
-## ⚡ Optional One-Line Install Command
-
-If you want to install all required packages manually before installing the `.deb`, use:
-
-```bash
-sudo apt update && sudo apt install -y python3 python3-tk python3-pil python3-pystray python3-gi mpv x11-utils wmctrl gir1.2-ayatanaappindicator3-0.1 libnotify-bin gir1.2-webkit2-4.1
-```
-
-After that, install the release package:
-
-```bash
-cd ~/Downloads
-sudo dpkg -i mint-wallpaper-studio_1.0.0_all_release.deb
-```
-
-If needed, finish with:
-
-```bash
-sudo apt -f install
-```
-
----
-
-<a id="wallpaper-engine-tutorial"></a>
-
-## 🎮 Wallpaper Engine Tutorial
-
-Linux Mint Wallpaper Studio can work with **Wallpaper Engine workshop items** when they contain directly usable media files such as **videos** or **images**.
-
-Not every Wallpaper Engine item works the same way on Linux as it does on Windows.
-
----
-
-### Step 1: Search for suitable wallpapers
-
-Use Wallpaper Engine and search for wallpapers that are likely to contain:
+Linux Mint Wallpaper Studio can import **compatible Wallpaper Engine workshop items** when they contain directly usable media such as:
 
 - 🎥 video files
-- 🖼️ image-based content
-- simple directly playable media
+- 🖼️ image files
+- 🌐 some HTML-based content
+- 🧪 some application-based content
 
-Example screenshot:
+### Recommended content types
 
-![Wallpaper Engine Search](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/Wallpaper_Engine_Screenshot_1.png)
+Best results usually come from:
 
-### Good candidates usually are:
-
-- video wallpapers
-- animated backgrounds exported as video
-- simple image-based wallpapers
-
-### Bad candidates usually are:
-
-- scene wallpapers with custom runtime rendering
-- application-based wallpapers
-- advanced web / HTML wallpapers
-
----
-
-### Step 2: Use filters
-
-Use Wallpaper Engine filters to narrow the results.
-
-Example screenshot:
-
-![Wallpaper Engine Filters](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/Wallpaper_Engine_Screenshot_2.png)
-
-### Recommended approach
-
-✔️ Prefer:
 - **Video**
-- directly usable media content
+- **Image**
+- simple directly usable media
 
-⚠️ Optional:
-- **Web** only if you want to inspect content, but it is not recommended as a guaranteed working live wallpaper type
+### More limited content types
 
-❌ Avoid if you want the highest compatibility:
-- **Scene**
+Some content types are only partially supported or experimental:
+
+- **HTML / Web**
 - **Application**
 
----
+### Import workflow
 
-### Step 3: Open Wallpaper Engine Sync in the app
-
-Inside Linux Mint Wallpaper Studio:
-
-1. Open the app
-2. Open **Wallpaper Engine Sync**
-3. Let the app scan workshop content
-4. Select compatible wallpapers
-5. Import them into your library
-
-Example sync window:
-
-![Wallpaper Engine Sync Window](https://raw.githubusercontent.com/THXel/Linux-Mint-Wallpaper-Studio-/main/Screenshots/WallpaerEngineSync_Screenshot.png)
-
----
-
-### Step 4: Inspect unsupported items if needed
-
-If a workshop item is not directly supported, the app can still detect it and show information about it through the **Scene Inspector**.
-
-This is useful for understanding why a wallpaper may not work as a native live wallpaper on Linux Mint.
-
----
-
-### Step 5: Preview before applying
-
-Before setting a wallpaper live:
-
-- use the preview panel
-- use click-to-preview
-- verify that the content plays correctly
-- check that the monitor behavior is correct
-
-This helps avoid importing unsupported or unsuitable content into active use.
+1. Open **Wallpaper Engine Sync**
+2. Scan workshop content
+3. Review detected entries
+4. Import supported wallpapers into the library
+5. Preview them before applying
 
 ---
 
@@ -462,38 +319,36 @@ This helps avoid importing unsupported or unsuitable content into active use.
 
 ### ✅ Supported
 
-The following wallpaper types are supported:
-
 - local image wallpapers
 - local video wallpapers
-- Wallpaper Engine workshop items that contain directly usable:
-  - image files
-  - video files
-
-These are the most reliable content types for playback in Linux Mint Wallpaper Studio.
+- compatible Wallpaper Engine image wallpapers
+- compatible Wallpaper Engine video wallpapers
+- HTML wallpapers
+- experimental application wallpapers
 
 ---
 
-<a id="unsupported-wallpaper-types"></a>
+<a id="unsupported"></a>
 
-## 🚫 Unsupported Wallpaper Types
+## 🚫 Unsupported / Limited Content
 
-The following are currently **not supported as true native live wallpapers**:
+### Limited / experimental
 
-- Wallpaper Engine **Scene** wallpapers
-- Wallpaper Engine **Application** wallpapers
-- Wallpaper Engine **Web / HTML** wallpapers as fully equivalent live wallpapers
+- **HTML wallpapers**
+  - currently intended for **Stretch across monitors**
+- **Application wallpapers**
+  - currently **experimental**
+  - currently focused on **Primary monitor only**
 
-### Important note
+### Not guaranteed
 
-Some unsupported items may still be:
+Some Wallpaper Engine items may still not behave like Windows Wallpaper Engine live wallpapers, especially when they rely on:
 
-- detected
-- listed
-- inspected
-- previewed in limited ways
-
-but they are not guaranteed to behave like Windows Wallpaper Engine live wallpapers.
+- custom scene rendering
+- complex runtime logic
+- engine-specific behavior
+- Wine compatibility limits
+- Linux desktop / X11 limitations
 
 ---
 
@@ -504,116 +359,60 @@ but they are not guaranteed to behave like Windows Wallpaper Engine live wallpap
 ### Typical workflow
 
 1. **Add media**
-   - import files
-   - import folders
-   - build a wallpaper library
-
+   - import files or folders
 2. **Preview content**
-   - inspect the selected wallpaper
-   - check file details
-   - use popup preview
-
+   - check images, videos, HTML, or app-based content
 3. **Organize playlists**
-   - group wallpapers
-   - create themed sets
-   - choose a target playlist
-
-4. **Select monitor targets**
-   - choose a display
-   - assign playback behavior
-   - use sync mode if needed
-
+   - build sets for different moods or monitors
+4. **Choose monitor behavior**
+   - Same on all monitors
+   - Different per monitor
+   - Stretch across monitors
 5. **Apply wallpaper**
-   - start wallpaper playback
-   - switch manually
-   - or use random mode / playlist behavior
+   - manually
+   - randomly
+   - or through auto change
+
+### Auto Change
+
+Auto Change supports:
+
+- one shared rule for all monitors
+- separate rules for each monitor when using **Different per monitor**
+
+This works much better now together with monitor mode and playlist behavior.
+
+### Application wallpapers
+
+The **Applications** section includes:
+
+- managed Wine runtime initialization
+- reset tools
+- Winetricks shortcut
+- winecfg shortcut
+- prefix folder tools
 
 ---
 
-### Main launch methods
+<a id="notes"></a>
 
-#### From the app menu
-Open the Linux Mint menu and search for:
+## ⚠️ Notes
 
-```text
-Mint Wallpaper Studio
-```
+- **Application wallpapers are experimental**
+- **HTML wallpapers are currently intended for Stretch across monitors**
+- **Application wallpapers are currently intended for the Primary monitor workflow**
+- best results are currently expected on:
+  - **Linux Mint**
+  - **Cinnamon**
+  - **X11**
 
-#### From terminal
+Multi-monitor behavior can still depend on:
 
-```bash
-mint-wallpaper-studio
-```
-
----
-
-<a id="feature-breakdown"></a>
-
-## 🛠️ Feature Breakdown
-
-### Library management
-Store and manage wallpapers in one place.
-
-### Image wallpapers
-Use standard local image files as wallpapers.
-
-### Video wallpapers
-Use local video files as animated wallpapers.
-
-### Playlists
-Group wallpapers into playlists and organize playback.
-
-### Random switching
-Automatically switch wallpapers on a timer.
-
-### Preview tools
-Preview wallpapers before you apply them.
-
-### Video thumbnails
-See quick previews for video-based wallpapers.
-
-### Popup preview player
-Test wallpapers in a dedicated preview popup.
-
-### Multi-monitor support
-Control which screen should receive which wallpaper behavior.
-
-### Sync mode
-Mirror or coordinate wallpaper behavior across monitors.
-
-### Audio controls
-Mute or adjust volume for video wallpapers.
-
-### Wallpaper Engine sync
-Import compatible workshop items into your Linux Mint wallpaper library.
-
-### Scene Inspector
-Inspect unsupported items to understand their type and structure.
-
-### Fullscreen pause
-Pause wallpaper activity when fullscreen windows are active.
-
-### Desktop HTML mode
-Support for desktop-integrated HTML behavior where available.
-
-### Tray integration
-Control the app through the system tray.
-
----
-
-<a id="known-limitations"></a>
-
-## ⚠️ Known Limitations
-
-- Scene wallpapers are not supported as native live wallpapers
-- Application wallpapers are not supported
-- Web / HTML wallpapers are not fully supported as native live wallpapers
-- Linux desktop behavior can vary depending on:
-  - X11
-  - Cinnamon behavior
-  - compositor setup
-  - multi-monitor configuration
-  - embedded desktop window behavior
+- display layout
+- X11 behavior
+- Cinnamon desktop handling
+- compositor behavior
+- Wine behavior for application wallpapers
 
 ---
 
@@ -622,35 +421,44 @@ Control the app through the system tray.
 ## 🧯 Troubleshooting
 
 ### The wallpaper does not play
-Check that:
-- `mpv` is installed
-- the file is supported
-- the selected wallpaper is a direct image or video file
-- your desktop/session supports the current playback method
 
-### Wallpaper Engine item imports but does not work
-This usually means the item is:
-- a Scene wallpaper
-- an Application wallpaper
-- a Web / HTML wallpaper
-- or otherwise not directly usable as a normal file-based wallpaper
+Check that:
+
+- `mpv` is installed
+- `xwallpaper` is installed
+- the file type is supported
+- your desktop/session supports the playback method
+
+### Wallpaper Engine item imports but does not work correctly
+
+This usually means the item depends on:
+
+- unsupported scene behavior
+- complex HTML behavior
+- application-specific runtime behavior
+- Wine compatibility issues
 
 ### Tray icon is missing
-Make sure the required appindicator-related package is installed:
+
+Make sure appindicator support is installed:
 
 ```bash
-gir1.2-ayatanaappindicator3-0.1
+sudo apt install gir1.2-ayatanaappindicator3-0.1
 ```
 
-### HTML or web-based content does not behave like Wallpaper Engine on Windows
-This is a platform limitation and depends heavily on Linux desktop integration and runtime behavior.
+### Application wallpaper stays open after switching
+
+Try switching to another wallpaper again or restarting the app. Application wallpapers are still experimental and runtime behavior may vary.
 
 ### Multi-monitor behavior is not what you expect
+
 Check:
-- playlist target selection
-- sync mode settings
-- active monitor configuration
-- X11 desktop handling
+
+- monitor mode
+- playlist target
+- auto change settings
+- whether the wallpaper type supports the selected layout
+- your X11 / Cinnamon monitor arrangement
 
 ---
 
@@ -658,16 +466,16 @@ Check:
 
 ## 🚧 Project Status
 
-This project is actively developed and improved.
+This project is actively developed and has improved heavily since the first public release.
 
 Current focus areas include:
 
-- UI improvements
-- better playlist handling
-- improved preview workflow
-- improved multi-instance handling
-- expanded Wallpaper Engine compatibility where possible
-- better Linux Mint integration
+- stability
+- multi-monitor behavior
+- better application wallpaper compatibility
+- better HTML handling
+- cleaner UI and workflow
+- improved Wallpaper Engine support where possible
 
 ---
 
@@ -675,16 +483,15 @@ Current focus areas include:
 
 ## 🤝 Contributing
 
-Contributions, ideas, bug reports, and feedback are welcome.
+Bug reports, feedback, ideas, and testing are welcome.
 
-You can help by:
+Helpful contributions include:
 
 - reporting bugs
-- suggesting features
 - testing on different Linux Mint setups
-- improving compatibility
+- sharing compatibility results
 - improving stability
-- helping refine Wallpaper Engine support behavior
+- helping refine Wallpaper Engine support
 
 ---
 
@@ -692,18 +499,17 @@ You can help by:
 
 ## 🐞 Issues and Feedback
 
-If something does not work correctly, please include as much detail as possible:
+If something does not work correctly, please include:
 
 - Linux Mint version
 - desktop environment
-- whether you are using Cinnamon / X11
-- installation method
+- whether you use Cinnamon / X11
 - package version
-- exact wallpaper type
+- wallpaper type
 - steps to reproduce
 - screenshots
 - terminal output
-- whether the problem happens with local media, playlists, or Wallpaper Engine sync
+- whether the issue affects local media, HTML, applications, playlists, or Wallpaper Engine imports
 
 ---
 
