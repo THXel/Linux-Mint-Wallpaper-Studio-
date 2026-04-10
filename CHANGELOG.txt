@@ -1,4 +1,120 @@
-v1.0.2
+Mint Wallpaper Studio 1.1.0
+
+Final public release build based on the stabilized 1.0.41.x series.
+
+Highlights
+- Stable multi-monitor monitor-mode handling
+- Reliable per-monitor auto change
+- HTML wallpapers restricted to stretch-across-monitors for consistent behavior
+- Experimental application wallpapers on the primary monitor
+- Improved tray menu layout and playback controls
+- Improved settings window stability and visibility logic
+
+Mint Wallpaper Studio 1.0.41.41
+
+- Trigger Random Now immediately when monitor mode changes inside Settings, not only from main UI or after save.
+
+Mint Wallpaper Studio 1.0.41.39
+
+- Safe Applications tab polish built on top of 1.0.41.37
+- Added a dedicated Prefix path row with Copy and Open Folder buttons
+- Kept the existing Options window layout intact so Save/Cancel remain visible
+- Simplified the Applications support text and removed the unused placeholder section
+
+1.0.41.37
+- Applications tab: added Winetricks and winecfg shortcuts for the managed Wine prefix.
+- Added buttons to open the prefix folder, open a terminal in the prefix, and copy the prefix path.
+
+1.0.41.35
+- Refresh pause button state after wallpaper apply so image -> video and mixed media transitions update the UI reliably.
+
+Mint Wallpaper Studio 1.0.41.17
+
+- polished custom dark message boxes with clearer layouts
+- added matching symbols/icons for info, warning, error, question and text prompt dialogs
+- improved yes/no dialog sizing to avoid oversized empty space on short messages
+- kept long instance/process dialogs scrollable for large process lists
+
+Mint Wallpaper Studio 1.0.41.11
+- Fixed monitor-mode refresh so Auto Change keeps updating when switching Same ↔ Different ↔ Stretch repeatedly.
+- Remember the per-monitor Auto Change view choice when temporarily leaving Different per monitor mode.
+- Restyled per-monitor Auto Change tabs to match the dark options UI and removed the bright white notebook look.
+
+1.0.41.2
+- Fixed Options window initialization order so monitor mode controls no longer break the dialog or leave tabs incomplete.
+- Restored the Options window sizing closer to 1.0.37.2 to avoid hidden Save/Cancel buttons.
+- Kept the newer audio-save, mixed-media-per-monitor, and primary-monitor application targeting fixes.
+- Clarified in the Applications tab that application wallpapers are primary-monitor only and not stretched across all monitors.
+
+1.0.40
+- Applications forced to primary monitor target and target box refresh improved.
+
+v1.0.38
+- Keep the 1.0.37.2 settings layout and continue with functional fixes.
+- Improve per-monitor media application so image/video combinations no longer overwrite each other as easily.
+- Restrict application targets more clearly to the primary monitor in per-monitor mode.
+- Keep per-monitor image backgrounds when changing only one monitor.
+
+1.0.30
+- Audio can now be limited to selected monitors; default is primary monitor only.
+- Playlist Target no longer shows Shared target in Different per monitor mode.
+- Main toolbar sizing and Options layout adjusted for monitor controls.
+
+v1.0.28
+- Added first real multi-monitor controller paths for pictures and videos.
+- Different per monitor can now launch separate per-monitor video instances.
+- Stretch across monitors now builds a stretched image across the full desktop area.
+- Auto Change and Playlist order now build per-monitor layouts when Different per monitor is active.
+
+1.0.25
+- Options window widened and tab styling refined
+- More compact, user-friendly option text
+
+v1.0.19
+- Improved Options window layout with larger default size and scrollable content.
+- Managed application runtime now prefers Wine Staging when available.
+- Application runtime setup now also tries DXVK, corefonts, Win10 mode, and extra compatibility defaults.
+- Runtime summary shows more detail about Wine mode and helper components.
+
+Version 1.0.17
+- Improved application wallpaper switching robustness for Wine wallpapers
+- Waits for the previous Wine prefix/processes to fully close before relaunch
+- Stronger desktop-window enforcement after application launch
+
+Version 1.0.15
+- Added deep fullscreen detection diagnostics to log active window IDs, candidate windows, window properties, geometry, and exact match/skip reasons.
+- Helps pinpoint why fullscreen windows are still rejected during live auto-pause checks.
+
+Version 1.0.13
+- Replaced Tk after-based fullscreen pause polling with a dedicated background monitor thread.
+- Added explicit fullscreen monitor startup logging and state transitions in the app debug log.
+- Improved fullscreen pause/resume reliability when the UI thread is busy.
+
+Version 1.0.11
+- Added fullscreen pause/resume debug logging to ~/.config/mint_wallpaper_studio/debug.log
+- Hardened mpv IPC reply handling for pause/resume commands
+- Logged fullscreen pause state transitions and pause/resume results
+
+1.0.10
+- fullscreen detection improved for monitor-filling game windows with top-offset client areas
+- application wallpaper switching now uses a dedicated Wine prefix and waits for wineserver shutdown
+- reduced leftover Wine window issues when switching application wallpapers
+
+v1.0.8
+- Fixed Debian package structure regression from 1.0.7.
+- Improved fullscreen detection for pause/resume on X11 using active-window and monitor-coverage checks.
+- Hardened mpv IPC pause/resume command retries.
+- Reduced Wine application flicker and repeatedly fit application wallpapers to the desktop size.
+
+Version 1.0.5
+- Improved application wallpaper support for Wine-based .exe wallpapers by pushing the window below normal windows, making it sticky, skipping taskbar/pager, and sizing it to the desktop.
+- Improved fullscreen auto-pause detection on X11 by checking the active window state and monitor-sized windows, which helps games like Baldur's Gate 3 pause wallpaper audio more reliably.
+
+Version 1.0.4
+- Added application wallpaper support with .exe import, Wallpaper Engine application detection, and Wine launch support.
+- Added live mpv IPC volume/mute control for video wallpapers.
+
+Version 1.0.2
 - Fixed video audio slider reloading the wallpaper continuously while dragging.
 - Audio changes are now applied once after slider movement settles or when released.
 
@@ -14,8 +130,5 @@ Highlights
 - Volume and mute controls
 - Linux Mint friendly desktop integration
 
-Recent polish
-- HTML playback stabilized and integrated into playlist/random state handling
-- Wallpaper Engine Sync dialog sizing and wording polished
-- Options window sizing improved
-- Desktop file and package metadata refreshed
+1.0.29
+- Fix monitor-mode video handling and auto-change behavior

@@ -14,6 +14,7 @@ IMAGE_EXTS = {
     ".pbm", ".pnm", ".tga", ".dds", ".pcx", ".xpm",
 }
 HTML_EXTS = {".html", ".htm"}
+APPLICATION_EXTS = {".exe"}
 
 VIDEO_EXTS = {
     ".mp4", ".webm", ".mkv", ".mov", ".avi", ".m4v", ".wmv", ".flv",
@@ -31,6 +32,8 @@ def classify_media(path: Path) -> Optional[str]:
     mt, _ = mimetypes.guess_type(str(path))
     if suf in HTML_EXTS:
         return "html"
+    if suf in APPLICATION_EXTS:
+        return "application"
     if mt:
         if mt.startswith("image/"):
             return "image"

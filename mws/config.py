@@ -12,6 +12,7 @@ AUTOSTART_DIR = Path.home() / ".config" / "autostart"
 AUTOSTART_FILE = AUTOSTART_DIR / "mint-wallpaper-studio.desktop"
 INTERNAL_LIBRARY_DIR = CONFIG_DIR / "library"
 PREVIEW_CACHE_DIR = CONFIG_DIR / "cache" / "previews"
+DEBUG_LOG_FILE = CONFIG_DIR / "debug.log"
 
 DEFAULTS = {
     "items": [],
@@ -34,6 +35,7 @@ DEFAULTS = {
     "last_apply_mode": "single",
     "video_volume": 35,
     "video_mute": True,
+    "audio_enabled_monitors": [],
     "show_unsupported_we": False,
     "monitor_sync_mode": True,
     "playlist_target": "synced",
@@ -46,6 +48,11 @@ DEFAULTS = {
     "selected_monitors": [],
     "close_to_tray": True,
     "pause_on_fullscreen": True,
+    "auto_change_mode": "off",
+    "auto_change_scope": "workspace",
+    "auto_change_per_monitor_enabled": False,
+    "auto_change_per_monitor_preference": False,
+    "auto_change_per_monitor": {},
 }
 
 class ConfigStore:

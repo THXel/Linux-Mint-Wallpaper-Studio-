@@ -7,7 +7,7 @@ from typing import Dict
 @dataclass
 class WallpaperItem:
     path: str
-    media_type: str  # image | video | html
+    media_type: str  # image | video | html | application
     name: str
     source: str = "local"  # local | wallpaper_engine
     format: str = ""
@@ -24,6 +24,8 @@ class WallpaperItem:
     scene_properties: dict | None = None
     enabled_targets: dict | None = None
     playlist_order: int = 0
+    preview_path: str = ""
+    launch_args: list[str] | None = None
 
     def to_dict(self) -> Dict:
         return asdict(self)

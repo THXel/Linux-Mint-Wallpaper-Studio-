@@ -92,6 +92,35 @@ def detect_steam_install_type(roots: List[Path] | None = None) -> str:
     return kinds[0]
 
 
+def _project_application_target(folder: Path) -> tuple[Path | None, Path | None]:
+    project_json = folder / "project.json"
+    exe_path = None
+    preview_path = None
+    if not project_json.exists():
+        return None, None
+    try:
+        data = json.loads(project_json.read_text(encoding="utf-8", errors="ignore"))
+    except Exception:
+        return None, None
+    launch_rel = str(data.get("file") or "").strip()
+    preview_rel = str(data.get("preview") or "").strip()
+    if launch_rel:
+        cand = (folder / launch_rel).resolve()
+        if cand.exists() and cand.is_file():
+            exe_path = cand
+    if preview_rel:
+        cand = (folder / preview_rel).resolve()
+        if cand.exists() and cand.is_file():
+            preview_path = cand
+    if preview_path is None:
+        for candidate in ("preview.gif", "preview.jpg", "preview.png", "preview.webp"):
+            cp = folder / candidate
+            if cp.exists():
+                preview_path = cp
+                break
+    return exe_path, preview_path
+
+
 def _read_project_meta(folder: Path) -> tuple[str, str, str]:
     title = folder.name
     notes = ""
@@ -149,10 +178,9 @@ def sync_wallpaper_engine(show_unsupported: bool = False) -> Tuple[List[Wallpape
                     break
 
             ptype_l = ptype.lower()
-            if ptype_l in {"scene", "application"} and not show_unsupported:
+            if ptype_l == "scene" and not show_unsupported:
                 continue
-            if ptype_l in {"scene", "application"}:
-                # Keep item visible, but not directly playable
+            if ptype_l == "scene":
                 p = preview if preview and preview.exists() else folder
                 scene_files, scene_properties = _collect_scene_info(folder)
                 item = WallpaperItem(
@@ -161,11 +189,38 @@ def sync_wallpaper_engine(show_unsupported: bool = False) -> Tuple[List[Wallpape
                     folder=str(folder), workshop_id=folder.name, supported=False,
                     notes=(notes + " preview-only").strip(),
                     scene_files=scene_files, scene_properties=scene_properties,
+                    preview_path=str(preview) if preview and preview.exists() else "",
                 )
                 if preview and preview.exists():
                     st = preview.stat()
                     item.size = st.st_size
                     item.modified_ts = st.st_mtime
+                items.append(item)
+                continue
+
+            if ptype_l == "application":
+                exe_path, preview_path = _project_application_target(folder)
+                scene_files, scene_properties = _collect_scene_info(folder)
+                if exe_path is None:
+                    p = preview if preview and preview.exists() else folder
+                    item = WallpaperItem(
+                        path=str(p), media_type="application", name=title, source="wallpaper_engine",
+                        format="exe", folder=str(folder), workshop_id=folder.name, supported=False,
+                        notes=(notes + " missing-exe").strip(),
+                        scene_files=scene_files, scene_properties=scene_properties,
+                        preview_path=str(preview_path) if preview_path else "",
+                    )
+                    if preview_path and preview_path.exists():
+                        st = preview_path.stat()
+                        item.size = st.st_size
+                        item.modified_ts = st.st_mtime
+                    items.append(item)
+                    continue
+                item = WallpaperItem.from_path(exe_path, "application", source="wallpaper_engine", workshop_id=folder.name, notes=(notes + " experimental-wine").strip())
+                item.name = title
+                item.folder = str(folder)
+                item.preview_path = str(preview_path) if preview_path else ""
+                item.scene_files, item.scene_properties = scene_files, scene_properties
                 items.append(item)
                 continue
 
