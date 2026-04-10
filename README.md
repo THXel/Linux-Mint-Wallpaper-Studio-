@@ -163,7 +163,7 @@ https://github.com/THXel/Linux-Mint-Wallpaper-Studio-/releases
 Recommended release filename:
 
 ```text
-mint-wallpaper-studio_1.1.0_final.deb
+mint-wallpaper-studio_1.1.0.deb
 ```
 
 ---
@@ -184,13 +184,13 @@ Download the current release and save it somewhere easy to access, for example:
 
 ```bash
 cd ~/Downloads
-sudo apt install ./mint-wallpaper-studio_1.1.0_final.deb
+sudo apt install ./mint-wallpaper-studio_1.1.0.deb
 ```
 
 If needed, you can also use:
 
 ```bash
-sudo dpkg -i mint-wallpaper-studio_1.1.0_final.deb
+sudo dpkg -i mint-wallpaper-studio_1.1.0.deb
 sudo apt -f install
 ```
 
@@ -208,7 +208,7 @@ Install the newer `.deb` over the old one:
 
 ```bash
 cd ~/Downloads
-sudo apt install ./mint-wallpaper-studio_1.1.0_final.deb
+sudo apt install ./mint-wallpaper-studio_1.1.0.deb
 ```
 
 ---
