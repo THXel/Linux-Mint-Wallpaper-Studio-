@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import List, Tuple
 from .models import WallpaperItem
-from .utils import classify_media, scan_paths
+from .utils import classify_media, scan_paths, command_exists
 
 WORKSHOP_APP_ID = "431960"  # Wallpaper Engine
 
@@ -178,16 +178,13 @@ def sync_wallpaper_engine(show_unsupported: bool = False) -> Tuple[List[Wallpape
                     break
 
             ptype_l = ptype.lower()
-            if ptype_l == "scene" and not show_unsupported:
-                continue
             if ptype_l == "scene":
-                p = preview if preview and preview.exists() else folder
                 scene_files, scene_properties = _collect_scene_info(folder)
+                scene_supported = command_exists("linux-wallpaperengine")
                 item = WallpaperItem(
-                    path=str(p), media_type="image" if preview else "video", name=title, source="wallpaper_engine",
-                    format=(p.suffix.lower().lstrip(".") if isinstance(p, Path) and p.is_file() else "folder"),
-                    folder=str(folder), workshop_id=folder.name, supported=False,
-                    notes=(notes + " preview-only").strip(),
+                    path=str(folder), media_type="scene", name=title, source="wallpaper_engine",
+                    format="scene", folder=str(folder), workshop_id=folder.name, supported=scene_supported,
+                    notes=(notes + (" experimental-linux-wallpaperengine" if scene_supported else " preview-only install-linux-wallpaperengine")).strip(),
                     scene_files=scene_files, scene_properties=scene_properties,
                     preview_path=str(preview) if preview and preview.exists() else "",
                 )

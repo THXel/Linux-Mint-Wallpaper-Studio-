@@ -16,7 +16,7 @@ try:
 except Exception:
     Image = None
 from .models import WallpaperItem
-from .utils import command_exists, session_is_x11, list_monitors
+from .utils import command_exists, resolve_command_path, session_is_x11, list_monitors
 from .config import CONFIG_DIR, DEBUG_LOG_FILE
 
 
@@ -25,10 +25,12 @@ class WallpaperController:
         self.video_proc: Optional[subprocess.Popen] = None
         self.html_proc: Optional[subprocess.Popen] = None
         self.app_proc: Optional[subprocess.Popen] = None
+        self.scene_proc: Optional[subprocess.Popen] = None
         self.current_item: Optional[WallpaperItem] = None
         self.video_volume: int = 35
         self.video_mute: bool = True
         self.video_paused: bool = False
+        self.scene_paused: bool = False
         self.video_ipc_path: Optional[str] = None
         self.video_procs: List[subprocess.Popen] = []
         self.video_ipc_paths: List[str] = []
@@ -36,13 +38,29 @@ class WallpaperController:
         self.video_monitor_ipc_map: dict[str, str] = {}
         self.video_monitor_proc_map: dict[str, subprocess.Popen] = {}
         self.video_audio_enabled_monitors: list[str] = []
+        self.scene_monitor_map: dict[str, str] = {}
+        self.scene_scaling: str = "fill"
+        self.scene_pause_on_fullscreen: bool = True
         self._generated_wallpaper_path: Optional[str] = None
         self._app_launch_token: int = 0
         self.app_wine_prefix: Optional[str] = None
 
 
     def _debug(self, message: str) -> None:
-        return
+        try:
+            cfg_file = CONFIG_DIR / "config.json"
+            debug_enabled = True
+            if cfg_file.exists():
+                cfg = json.loads(cfg_file.read_text(encoding="utf-8", errors="ignore"))
+                if isinstance(cfg, dict):
+                    debug_enabled = bool(cfg.get("debug_logging", True))
+            if not debug_enabled:
+                return
+            DEBUG_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with DEBUG_LOG_FILE.open("a", encoding="utf-8", errors="ignore") as fh:
+                fh.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [controller] {message}\n")
+        except Exception:
+            pass
 
     def set_audio_monitor_enabled(self, monitors: list[str] | None = None) -> None:
         self.video_audio_enabled_monitors = list(monitors or [])
@@ -63,6 +81,11 @@ class WallpaperController:
         except Exception:
             pass
 
+    def set_scene_runtime_options(self, *, pause_on_fullscreen: bool = True, scaling: str = "fill") -> None:
+        self.scene_pause_on_fullscreen = bool(pause_on_fullscreen)
+        scaling = str(scaling or "fill").lower()
+        self.scene_scaling = scaling if scaling in {"stretch", "fit", "fill", "default"} else "fill"
+
     def _cleanup_generated_wallpaper(self) -> None:
         path = self._generated_wallpaper_path
         self._generated_wallpaper_path = None
@@ -72,6 +95,33 @@ class WallpaperController:
             Path(path).unlink(missing_ok=True)
         except Exception:
             pass
+
+    def show_transition_frame(self) -> bool:
+        if Image is None:
+            return False
+        try:
+            monitors = list_monitors()
+            if monitors:
+                min_x = min(int(m.get("x", 0)) for m in monitors)
+                min_y = min(int(m.get("y", 0)) for m in monitors)
+                max_x = max(int(m.get("x", 0)) + max(1, int(m.get("width", 0) or 1)) for m in monitors)
+                max_y = max(int(m.get("y", 0)) + max(1, int(m.get("height", 0) or 1)) for m in monitors)
+                width = max(1, max_x - min_x)
+                height = max(1, max_y - min_y)
+            else:
+                width, height = 1920, 1080
+            out = CONFIG_DIR / f"autochange-fade-{int(time.time()*1000)}.png"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            img = Image.new("RGB", (width, height), (0, 0, 0))
+            img.save(out, format="PNG")
+            self._cleanup_generated_wallpaper()
+            self.set_image(str(out))
+            self._generated_wallpaper_path = str(out)
+            self._debug(f"show_transition_frame success path={str(out)!r} size={(width, height)!r}")
+            return True
+        except Exception as exc:
+            self._debug(f"show_transition_frame failed exc={exc}")
+            return False
 
     def _cleanup_video_ipc(self) -> None:
         paths = []
@@ -446,38 +496,68 @@ class WallpaperController:
         except Exception:
             pass
 
-    def stop_video(self) -> None:
-        self._app_launch_token += 1
-        had_app = self.app_proc is not None
-        app_prefix = self.app_wine_prefix
-        procs = [p for p in ([self.video_proc] + list(self.video_procs) + [self.html_proc, self.app_proc]) if p is not None]
-        self.video_proc = None
-        self.video_procs = []
-        self.video_monitor_proc_map = {}
+    def _terminate_proc(self, proc: Optional[subprocess.Popen], label: str = "proc") -> None:
+        if proc is None:
+            return
+        try:
+            if proc.poll() is None:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                proc.wait(timeout=3.0)
+        except Exception:
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+            except Exception as exc:
+                self._debug(f"{label} kill failed exc={exc}")
+
+    def stop_scene(self) -> None:
+        proc = self.scene_proc
+        self.scene_proc = None
+        self.scene_monitor_map = {}
+        self.scene_paused = False
+        if proc is None:
+            return
+        self._terminate_proc(proc, "scene")
+
+    def stop_html(self) -> None:
+        proc = self.html_proc
         self.html_proc = None
+        if proc is None:
+            return
+        self._terminate_proc(proc, "html")
+
+    def stop_app(self) -> None:
+        self._app_launch_token += 1
+        proc = self.app_proc
+        had_app = proc is not None
+        app_prefix = self.app_wine_prefix
         self.app_proc = None
         self.app_wine_prefix = None
-        self.video_paused = False
-        self._cleanup_video_ipc()
-        self._cleanup_generated_wallpaper()
-        if not procs and not had_app:
-            return
-        for proc in procs:
-            try:
-                if proc.poll() is None:
-                    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-                    proc.wait(timeout=3.0)
-            except Exception:
-                try:
-                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-                except Exception:
-                    pass
+        if proc is not None:
+            self._terminate_proc(proc, "app")
         if had_app:
             self._shutdown_app_wine_prefix(app_prefix)
             self._wait_for_wine_prefix_exit(app_prefix, timeout=8.0)
-            # give the window manager a short moment to forget old Wine windows
             time.sleep(0.35)
+
+    def stop_dynamic_wallpapers(self) -> None:
+        self.stop_video()
+        self.stop_scene()
+        self.stop_html()
+        self.stop_app()
+        self._cleanup_generated_wallpaper()
         self._cleanup_orphan_wallpaper_processes()
+
+    def stop_video(self) -> None:
+        procs = [p for p in ([self.video_proc] + list(self.video_procs)) if p is not None]
+        self.video_proc = None
+        self.video_procs = []
+        self.video_monitor_proc_map = {}
+        self.video_paused = False
+        self._cleanup_video_ipc()
+        if not procs:
+            return
+        for proc in procs:
+            self._terminate_proc(proc, "video")
 
     def is_video_running(self) -> bool:
         procs = [p for p in ([self.video_proc] + list(self.video_procs)) if p is not None]
@@ -491,8 +571,12 @@ class WallpaperController:
         proc = self.html_proc
         return bool(proc and proc.poll() is None)
 
+    def is_scene_running(self) -> bool:
+        proc = self.scene_proc
+        return bool(proc and proc.poll() is None)
+
     def is_any_wallpaper_running(self) -> bool:
-        return self.is_video_running() or self.is_html_running() or self.is_app_running() or bool(self.current_item)
+        return self.is_video_running() or self.is_html_running() or self.is_app_running() or self.is_scene_running() or bool(self.current_item)
 
     def pause_video(self) -> bool:
         procs = [p for p in ([self.video_proc] + list(self.video_procs)) if p is not None]
@@ -540,6 +624,36 @@ class WallpaperController:
             return True
         except Exception as exc:
             self._debug(f"resume_video failed via SIGCONT fallback: {exc}")
+            return False
+
+    def pause_scene(self) -> bool:
+        proc = self.scene_proc
+        if not proc or proc.poll() is not None:
+            self.scene_paused = False
+            self._debug("pause_scene skipped because no active scene process")
+            return False
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGSTOP)
+            self.scene_paused = True
+            self._debug("pause_scene succeeded via SIGSTOP")
+            return True
+        except Exception as exc:
+            self._debug(f"pause_scene failed via SIGSTOP: {exc}")
+            return False
+
+    def resume_scene(self) -> bool:
+        proc = self.scene_proc
+        if not proc or proc.poll() is not None:
+            self.scene_paused = False
+            self._debug("resume_scene skipped because no active scene process")
+            return False
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGCONT)
+            self.scene_paused = False
+            self._debug("resume_scene succeeded via SIGCONT")
+            return True
+        except Exception as exc:
+            self._debug(f"resume_scene failed via SIGCONT: {exc}")
             return False
 
     def _run(self, cmd: List[str]) -> bool:
@@ -783,7 +897,8 @@ class WallpaperController:
         self._debug(f"set_video_on_monitor start monitor={monitor!r} path={path!r} app_running={self.is_app_running()} html_running={self.is_html_running()}")
         if self.is_app_running() or self.is_html_running():
             self._debug("set_video_on_monitor stopping app/html runtime before starting video")
-            self.stop_video()
+            self.stop_html()
+            self.stop_app()
         monitor = str(monitor or "")
         p = Path(path).resolve()
         if not monitor or not p.exists():
@@ -812,13 +927,21 @@ class WallpaperController:
         self.video_proc = self.video_procs[0] if self.video_procs else proc
         self.video_ipc_path = self.video_ipc_paths[0] if self.video_ipc_paths else ipc_path
         self.video_audio_enabled_monitors = list(audio_enabled_monitors or self.video_audio_enabled_monitors or [])
+        self.video_paused = False
+        if self.scene_proc is not None and self.scene_proc.poll() is None and self.scene_paused:
+            try:
+                os.killpg(os.getpgid(self.scene_proc.pid), signal.SIGCONT)
+                self.scene_paused = False
+                self._debug(f"set_video_on_monitor resumed paused scene monitor={monitor!r}")
+            except Exception as exc:
+                self._debug(f"set_video_on_monitor failed to resume scene monitor={monitor!r} exc={exc}")
         self.current_item = WallpaperItem(path=str(p), media_type="video", name=p.stem)
         self.apply_audio_live()
         return "per-monitor video"
 
     def set_video_multi(self, output_to_path: dict[str, str], audio_enabled_monitors: list[str] | None = None) -> str:
         self._debug(f"set_video_multi start outputs={output_to_path!r} app_running={self.is_app_running()} html_running={self.is_html_running()}")
-        self.stop_video()
+        self.stop_dynamic_wallpapers()
         if not output_to_path:
             raise RuntimeError("No monitor video mapping provided.")
         monitors_by_name = {m.get("name"): m for m in list_monitors() if m.get("name")}
@@ -886,9 +1009,11 @@ class WallpaperController:
         self._debug(f"set_image_multi start stop_video={stop_video} outputs={output_to_path!r} html_running={self.is_html_running()} app_running={self.is_app_running()} video_running={self.is_video_running()}")
         if stop_video:
             self.stop_video()
+            self.stop_scene()
         elif self.is_app_running() or self.is_html_running():
             self._debug("set_image_multi stopping app/html runtime even though stop_video=False")
-            self.stop_video()
+            self.stop_html()
+            self.stop_app()
         if not output_to_path:
             raise RuntimeError("No monitor wallpaper mapping provided.")
         resolved = {name: str(Path(path).resolve()) for name, path in output_to_path.items() if Path(path).exists()}
@@ -911,7 +1036,7 @@ class WallpaperController:
 
     def set_image(self, path: str) -> str:
         self._debug(f"set_image start path={path!r} app_running={self.is_app_running()} html_running={self.is_html_running()} video_running={self.is_video_running()}")
-        self.stop_video()
+        self.stop_dynamic_wallpapers()
         self._cleanup_generated_wallpaper()
         p = Path(path).resolve()
         if not p.exists():
@@ -932,7 +1057,7 @@ class WallpaperController:
         return ", ".join(methods) if methods else "image"
 
     def set_video(self, path: str) -> str:
-        self.stop_video()
+        self.stop_dynamic_wallpapers()
         self._cleanup_generated_wallpaper()
         p = Path(path).resolve()
         if not p.exists():
@@ -968,7 +1093,7 @@ class WallpaperController:
 
     def set_application(self, path: str) -> str:
         self._debug(f"set_application requested path={path!r}")
-        self.stop_video()
+        self.stop_dynamic_wallpapers()
         time.sleep(0.55)
         p = Path(path).resolve()
         if not p.exists():
@@ -1022,7 +1147,7 @@ class WallpaperController:
 
     def set_html(self, path: str) -> str:
         self._debug(f"set_html requested path={path!r}")
-        self.stop_video()
+        self.stop_dynamic_wallpapers()
         self._cleanup_generated_wallpaper()
         p = Path(path).resolve()
         if not p.exists():
@@ -1048,6 +1173,112 @@ class WallpaperController:
         except Exception as exc:
             raise RuntimeError("HTML wallpaper could not be started. " + str(exc))
 
+    def set_scene(self, path: str, monitor_map: dict[str, str] | None = None) -> str:
+        self._debug(f"set_scene requested path={path!r} monitor_map={monitor_map!r}")
+        self.stop_dynamic_wallpapers()
+        self._cleanup_generated_wallpaper()
+        p = Path(path).resolve()
+        if p.is_file():
+            p = p.parent
+        if not p.exists() or not p.is_dir():
+            raise RuntimeError("Scene folder not found.")
+        scene_pkg = p / "scene.pkg"
+        project_json = p / "project.json"
+        if not scene_pkg.exists() and not project_json.exists():
+            raise RuntimeError("This folder does not look like a Wallpaper Engine scene.")
+        engine_bin = resolve_command_path("linux-wallpaperengine")
+        if not engine_bin:
+            raise RuntimeError("linux-wallpaperengine was not found. Install it to run Scene wallpapers.")
+
+        cmd = [engine_bin]
+        if self.video_mute:
+            cmd.append("--silent")
+        else:
+            cmd += ["--volume", str(self.video_volume), "--noautomute"]
+        if self.scene_scaling and self.scene_scaling != "default":
+            cmd += ["--scaling", self.scene_scaling]
+        if not self.scene_pause_on_fullscreen:
+            cmd.append("--no-fullscreen-pause")
+
+        resolved_map: dict[str, str] = {}
+        known_names: list[str] = []
+        stretch_across = False
+        if session_is_x11():
+            known = [m for m in list_monitors() if m.get("name")]
+            known_names = [str(m.get("name")) for m in known if m.get("name")]
+            self._debug(f"scene set x11 known_monitors={known_names!r} incoming_monitor_map={monitor_map!r}")
+            if monitor_map and "__stretch__" in monitor_map:
+                stretch_across = True
+            if monitor_map and not stretch_across:
+                for mon, bg in (monitor_map or {}).items():
+                    mon = str(mon or "").strip()
+                    bg = str(bg or "").strip()
+                    if mon and bg and (not known_names or mon in known_names):
+                        resolved_map[mon] = bg
+            if stretch_across:
+                cmd.append(str(p))
+            else:
+                if not resolved_map:
+                    if known_names:
+                        for mon in known_names:
+                            resolved_map[mon] = str(p)
+                    else:
+                        primary = next((m for m in known if m.get("primary")), None)
+                        screen_name = str((primary or {}).get("name") or "").strip()
+                        if screen_name:
+                            resolved_map[screen_name] = str(p)
+                if resolved_map:
+                    for mon, bg in resolved_map.items():
+                        cmd += ["--screen-root", mon, "--bg", bg]
+                else:
+                    cmd.append(str(p))
+        else:
+            cmd.append(str(p))
+
+        log_dir = Path.home() / ".local/share/mint-wallpaper-studio"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / "scene-runtime.log"
+        try:
+            with log_file.open("w", encoding="utf-8", errors="ignore") as fh:
+                fh.write("Command: " + " ".join(cmd) + "\n")
+                fh.write("Working directory: " + str(p) + "\n")
+                fh.write("Incoming monitor_map: " + json.dumps(monitor_map or {}, ensure_ascii=False) + "\n")
+                fh.write("Known monitors: " + json.dumps(known_names, ensure_ascii=False) + "\n")
+                fh.write("Stretch across: " + json.dumps(stretch_across) + "\n")
+                if resolved_map:
+                    fh.write("Resolved monitor map: " + json.dumps(resolved_map, ensure_ascii=False) + "\n")
+                fh.write("\n")
+                fh.flush()
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=str(p),
+                    stdout=fh,
+                    stderr=subprocess.STDOUT,
+                    preexec_fn=os.setsid,
+                )
+            time.sleep(1.5)
+            if proc.poll() is None:
+                self.scene_proc = proc
+                self.scene_monitor_map = dict(resolved_map)
+                self.scene_paused = False
+                self.video_paused = False
+                self.current_item = WallpaperItem(path=str(p), media_type="scene", name=p.name)
+                if stretch_across:
+                    return "linux-wallpaperengine (stretch across monitors)"
+                if resolved_map:
+                    return f"linux-wallpaperengine ({len(resolved_map)} monitor{'s' if len(resolved_map) != 1 else ''})"
+                return "linux-wallpaperengine (experimental)"
+            debug_tail = ""
+            try:
+                lines = log_file.read_text(encoding="utf-8", errors="ignore").splitlines()
+                tail = lines[-20:]
+                if tail:
+                    debug_tail = "\n\nDebug:\n" + "\n".join(tail)
+            except Exception:
+                pass
+            raise RuntimeError(f"linux-wallpaperengine: exit {proc.returncode}\nLog: {log_file}{debug_tail}")
+        except Exception as exc:
+            raise RuntimeError("Scene wallpaper could not be started. " + str(exc))
     def apply(self, item: WallpaperItem) -> str:
         if item.media_type == "image":
             return self.set_image(item.path)
@@ -1057,4 +1288,6 @@ class WallpaperController:
             return self.set_html(item.path)
         if item.media_type == "application":
             return self.set_application(item.path)
+        if item.media_type == "scene":
+            return self.set_scene(item.path)
         raise RuntimeError("Unsupported media type.")

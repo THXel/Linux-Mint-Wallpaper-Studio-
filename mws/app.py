@@ -57,7 +57,7 @@ from .config import APP_NAME, AUTOSTART_DIR, AUTOSTART_FILE, ConfigStore, INTERN
 from .controller import WallpaperController, DEBUG_LOG_FILE
 from .models import WallpaperItem
 from .preview import PIL_AVAILABLE, image_resolution, render_image_preview, render_video_thumbnail, render_image_preview_file, render_video_thumbnail_file, find_html_preview_image
-from .utils import classify_media, human_dt, human_size, open_in_file_manager, probe_resolution, scan_paths, list_monitors, command_exists, session_is_x11
+from .utils import classify_media, human_dt, human_size, open_in_file_manager, probe_resolution, scan_paths, list_monitors, command_exists, resolve_command_path, session_is_x11
 from .we_sync import sync_wallpaper_engine, detect_steam_install_type
 
 
@@ -164,9 +164,9 @@ class App:
         ("all", "All"),
         ("pictures", "Pictures"),
         ("videos", "Videos"),
+        ("scene", "Scene"),
         ("html", "HTML"),
         ("applications", "Applications"),
-        ("wallpaper_engine", "Wallpaper Engine"),
     ]
 
     def __init__(self, root: tk.Tk, start_minimized: bool = False, launched_from_autostart: bool = False):
@@ -177,6 +177,7 @@ class App:
             int(self.store.data.get("video_volume", 35)),
             bool(self.store.data.get("video_mute", True)),
         )
+        self._sync_scene_runtime_options()
         self.root.title(APP_NAME)
         try:
             self.root.wm_class("mint-wallpaper-studio", "mint-wallpaper-studio")
@@ -258,6 +259,9 @@ class App:
         self.tray_now_playing_item = None
         self.tray_pause_item = None
         self.tray_mute_item = None
+        self._scene_install_prompt_open = False
+        self._last_scene_install_prompt_path = ""
+        self._category_notice_open = False
         self.gtk_loop_thread = None
         self.tray_enabled = AppIndicator3 is not None or (pystray is not None and Image is not None)
         self.tray_backend = "appindicator" if AppIndicator3 is not None else ("pystray" if (pystray is not None and Image is not None) else None)
@@ -369,22 +373,37 @@ class App:
         try:
             if COMMAND_FILE.exists():
                 payload = COMMAND_FILE.read_text().strip().splitlines()
-                if payload and payload[0].strip() == "show_refresh":
+                if payload:
+                    command = payload[0].strip()
                     try:
                         COMMAND_FILE.unlink()
                     except Exception:
                         pass
-                    self._show_from_tray()
-                    try:
-                        self.refresh_list()
-                        self._refresh_target_box()
-                    except Exception:
-                        pass
-                    self.set_status("Refreshed existing window instead of opening a second instance.")
+                    if command == "show_refresh":
+                        self._show_from_tray()
+                        try:
+                            self.refresh_list()
+                            self._refresh_target_box()
+                        except Exception:
+                            pass
+                        self.set_status("Refreshed existing window instead of opening a second instance.")
+                    elif command == "restart_now":
+                        self.root.after(50, self._restart_after_scene_backend_install)
         except Exception:
             pass
         if not getattr(self, "_shutdown", False):
             self.root.after(500, self._poll_external_commands)
+
+    def _restart_after_scene_backend_install(self) -> None:
+        cmd = ["bash", "-lc", "sleep 1; setsid /usr/bin/mint-wallpaper-studio >/dev/null 2>&1 < /dev/null &"]
+        try:
+            subprocess.Popen(cmd, start_new_session=True)
+        except Exception:
+            try:
+                subprocess.Popen(["/usr/bin/mint-wallpaper-studio"], start_new_session=True)
+            except Exception:
+                pass
+        self.quit_all_instances(confirm=False)
 
     def _peek_desktop_temporarily(self, duration_ms: int = 1300) -> None:
         windows = [self.root, getattr(self, "options_window", None), getattr(self, "preview_popup", None), getattr(self, "tray_volume_win", None)]
@@ -893,6 +912,71 @@ X-GNOME-WMClass=MintWallpaperStudio
     def _show_error(self, title: str, message: str):
         self._dark_messagebox(title, message, kind="error", buttons=("OK",), default="OK")
 
+    def _show_notice_with_checkbox(self, title: str, message: str, checkbox_text: str = "Don't show me again") -> tuple[bool, bool]:
+        result = {"ok": False, "dont_show": False}
+        win = tk.Toplevel(self.root)
+        self._style_toplevel(win, title=title, geometry="820x310", modal=True)
+        try:
+            win.minsize(760, 280)
+            win.resizable(False, False)
+        except Exception:
+            pass
+
+        outer = ttk.Frame(win, style="Card.TFrame", padding=16)
+        outer.pack(fill="both", expand=True)
+        self._build_dialog_header(outer, title, message, kind="info", is_long=False)
+
+        dont_show_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(outer, text=checkbox_text, variable=dont_show_var).pack(anchor="w", pady=(14, 0))
+
+        btn_row = ttk.Frame(outer, style="Card.TFrame")
+        btn_row.pack(fill="x", pady=(18, 0))
+
+        def close(ok: bool):
+            result["ok"] = ok
+            result["dont_show"] = bool(dont_show_var.get())
+            try:
+                win.grab_release()
+            except Exception:
+                pass
+            win.destroy()
+
+        ttk.Button(btn_row, text="OK", style="Accent.TButton", command=lambda: close(True)).pack(side="right", ipadx=12, ipady=3)
+        win.bind("<Escape>", lambda e: close(False))
+        win.protocol("WM_DELETE_WINDOW", lambda: close(False))
+        win.wait_window()
+        return bool(result["ok"]), bool(result["dont_show"])
+
+    def _maybe_show_category_notice(self, key: str):
+        if self._category_notice_open:
+            return
+        messages = {
+            "html": (
+                "HTML compatibility notice",
+                "HTML wallpapers are experimental and compatibility can vary a lot depending on the wallpaper and the embedded browser runtime. Some HTML wallpapers may render incorrectly, stay black, miss effects, or only work in limited monitor modes.",
+                "hide_html_category_notice",
+            ),
+            "applications": (
+                "Application compatibility notice",
+                "Application wallpapers are highly experimental. Many Wallpaper Engine application wallpapers are Windows-based and may only work partially through Wine, may open separate windows, or may fail completely depending on the app and runtime.",
+                "hide_application_category_notice",
+            ),
+        }
+        payload = messages.get(key)
+        if not payload:
+            return
+        title, message, cfg_key = payload
+        if bool(self.store.data.get(cfg_key, False)):
+            return
+        self._category_notice_open = True
+        try:
+            _ok, dont_show = self._show_notice_with_checkbox(title, message)
+        finally:
+            self._category_notice_open = False
+        if dont_show:
+            self.store.data[cfg_key] = True
+            self.store.save()
+
     def _prompt_text(self, title: str, prompt: str, initialvalue: str = ""):
         result = {"value": None}
         win = tk.Toplevel(self.root)
@@ -1203,7 +1287,7 @@ X-GNOME-WMClass=MintWallpaperStudio
         ).pack(anchor="w")
         tk.Label(
             title_text_wrap,
-            text="Images, videos, playlists, random switching, and Wallpaper Engine sync.",
+            text="Images, videos, scenes, HTML, applications, playlists, and Wallpaper Engine sync.",
             bg=Theme.BG,
             fg=Theme.MUTED,
             font=("Segoe UI", 12),
@@ -1319,13 +1403,18 @@ X-GNOME-WMClass=MintWallpaperStudio
         top.pack(fill="x")
         self.preview_header = top
         ttk.Label(top, text="Preview", style="Body.TLabel").pack(side="left")
+        self.scene_backend_btn = ttk.Button(top, text="Install Scene Backend", command=self._install_scene_backend)
+        self.scene_backend_btn.pack(side="right")
+        self.scene_backend_btn.pack_forget()
         self.html_debug_btn = ttk.Button(top, text="HTML Debug", command=self._open_html_debug_window)
+        self.debug_log_btn = ttk.Button(top, text="Debug Log", command=self._open_debug_log_window)
         self.html_debug_btn.pack(side="right")
+        self.debug_log_btn.pack(side="right", padx=(0, 8))
         self.html_debug_btn.pack_forget()
 
         self.preview_frame = ttk.Frame(right, style="Alt.TFrame", padding=10)
         self.preview_frame.pack(fill="both", expand=True, pady=(8, 0))
-        self.preview_label = tk.Label(self.preview_frame, bg="#07111f", fg="#d7e7ff", text="Select an item", font=("Segoe UI", 18), cursor="hand2")
+        self.preview_label = tk.Label(self.preview_frame, bg="#07111f", fg="#d7e7ff", text="Select an item", font=("Segoe UI", 18), cursor="hand2", justify="center", wraplength=520)
         self.preview_label.pack(fill="both", expand=True)
         self.preview_label.bind("<Button-1>", self._on_preview_click)
         self.preview_frame.bind("<Button-1>", self._on_preview_click)
@@ -1437,21 +1526,21 @@ X-GNOME-WMClass=MintWallpaperStudio
         enabled = bool(self.store.data.get("we_enabled", True))
         if hasattr(self, "we_sync_btn"):
             try:
-                self.we_sync_btn.configure(state=("normal" if enabled else "disabled"))
+                if enabled:
+                    if self.we_sync_btn.winfo_manager() != "pack":
+                        self.we_sync_btn.pack(side="left", padx=4, before=None)
+                    self.we_sync_btn.configure(state="normal")
+                else:
+                    try:
+                        self.we_sync_btn.pack_forget()
+                    except Exception:
+                        pass
             except Exception:
                 pass
-        if hasattr(self, "tab_buttons") and "wallpaper_engine" in self.tab_buttons:
-            btn = self.tab_buttons["wallpaper_engine"]
-            try:
-                if enabled and not btn.winfo_manager():
-                    btn.pack(side="left", padx=(0, 6))
-                elif not enabled and btn.winfo_manager():
-                    btn.pack_forget()
-            except Exception:
-                pass
-        if not enabled and self.tab_var.get() == "wallpaper_engine":
+        if not enabled and self.tab_var.get() == "scene":
             self.tab_var.set("all")
             self.store.data["active_tab"] = "all"
+        self._refresh_tab_buttons()
 
     def _sort_changed(self):
         raw = self.sort_box.get().split(" — ", 1)[0].strip()
@@ -1491,6 +1580,42 @@ X-GNOME-WMClass=MintWallpaperStudio
             "per_monitor": "Different per monitor",
             "stretch": "Stretch across monitors",
         }.get(mode, "Same on all monitors")
+
+    def _available_monitor_mode_values_for_media(self, selected=None) -> list[str]:
+        labels = {
+            "shared": "Same on all monitors",
+            "per_monitor": "Different per monitor",
+            "stretch": "Stretch across monitors",
+        }
+        current_tab = self.tab_var.get() if hasattr(self, "tab_var") else "all"
+        media_type = getattr(selected, "media_type", "") if selected else ""
+        if current_tab == "scene" or media_type == "scene":
+            return [labels["shared"], labels["per_monitor"]]
+        if current_tab == "html" or media_type == "html":
+            return [labels["stretch"]]
+        if current_tab == "applications" or media_type == "application":
+            return []
+        return [labels["shared"], labels["per_monitor"], labels["stretch"]]
+
+    def _refresh_monitor_mode_box_values(self, selected=None):
+        if not hasattr(self, "monitor_mode_box"):
+            return
+        try:
+            values = self._available_monitor_mode_values_for_media(selected)
+            app_context = self.tab_var.get() == "applications" or (selected and getattr(selected, "media_type", "") == "application")
+            state = "disabled" if (self._is_single_monitor_setup() or app_context) else "readonly"
+            self.monitor_mode_box.configure(values=values, state=state)
+            label = self._monitor_mode_label()
+            if app_context:
+                self.monitor_mode_box.set("")
+            elif label in values:
+                self.monitor_mode_box.set(label)
+            elif values:
+                self.monitor_mode_box.set(values[0])
+            else:
+                self.monitor_mode_box.set("")
+        except Exception:
+            pass
 
     def _media_monitor_mode_constraint(self, selected=None):
         selected = selected or self.primary_item()
@@ -1586,12 +1711,7 @@ X-GNOME-WMClass=MintWallpaperStudio
         if self._is_single_monitor_setup():
             mode = "shared"
             self._enforce_single_monitor_mode()
-        if hasattr(self, "monitor_mode_box"):
-            try:
-                self.monitor_mode_box.set(self._monitor_mode_label(mode))
-                self.monitor_mode_box.configure(state=("disabled" if self._is_single_monitor_setup() else "readonly"))
-            except Exception:
-                pass
+        self._refresh_monitor_mode_box_values(self.primary_item())
         self._update_monitor_info()
 
     def _selected_monitor_names(self) -> list[str]:
@@ -1619,6 +1739,7 @@ X-GNOME-WMClass=MintWallpaperStudio
         if mode != "per_monitor":
             self.playlist_target.set("synced")
             self.store.data["playlist_target"] = "synced"
+        self._migrate_enabled_states_for_monitor_mode_change(previous_mode, mode, previous_target)
         self.store.save()
         self._refresh_target_box()
         self.refresh_list()
@@ -1649,6 +1770,7 @@ X-GNOME-WMClass=MintWallpaperStudio
 
     def _monitor_mode_changed(self, mode: str):
         previous_mode = self._monitor_mode_effective()
+        previous_target = str(self.playlist_target.get() or 'synced')
         constraint = self._media_monitor_mode_constraint(self.primary_item())
         if constraint:
             mode = constraint.get("forced_mode") or mode
@@ -2030,35 +2152,84 @@ X-GNOME-WMClass=MintWallpaperStudio
             return "monitors"
         return "workspace"
 
+    def _autochange_transition(self) -> None:
+        try:
+            if hasattr(self.controller, "show_transition_frame"):
+                self.controller.show_transition_frame()
+            try:
+                self.root.update_idletasks()
+                self.root.update()
+            except Exception:
+                pass
+            time.sleep(0.12)
+        except Exception as exc:
+            self._debug(f"autochange transition skipped exc={exc}")
+
+    def _compatible_auto_family_for_targets(self, targets: list[str]) -> str | None:
+        families = ("image", "video", "scene")
+        available_sets = []
+        for monitor in targets:
+            pool = self._playlist_pool_for_target(monitor, supported_only=True)
+            available = {getattr(item, "media_type", "") for item in pool if getattr(item, "media_type", "") in families}
+            if available:
+                available_sets.append(available)
+        if not available_sets:
+            return None
+        common = set(available_sets[0])
+        for available in available_sets[1:]:
+            common &= available
+        if not common:
+            return None
+        current_media = str(getattr(getattr(self.controller, "current_item", None), "media_type", "") or "")
+        for family in (current_media, "image", "video", "scene"):
+            if family in common:
+                return family
+        return next(iter(common))
+
     def _apply_items_to_monitor_layout(self, items_by_monitor: dict[str, WallpaperItem], source_label: str = "Applied") -> str:
         if not items_by_monitor:
             raise RuntimeError("No monitor items selected.")
         first_item = next(iter(items_by_monitor.values()))
         image_map = {mon: item.path for mon, item in items_by_monitor.items() if item.media_type == "image"}
         video_map = {mon: item.path for mon, item in items_by_monitor.items() if item.media_type == "video"}
-        other_items = [item for item in items_by_monitor.values() if item.media_type not in {"image", "video"}]
+        scene_map = {mon: item.path for mon, item in items_by_monitor.items() if item.media_type == "scene"}
+        html_items = {mon: item for mon, item in items_by_monitor.items() if item.media_type == "html"}
+        app_items = {mon: item for mon, item in items_by_monitor.items() if item.media_type == "application"}
 
-        if other_items:
+        if html_items or app_items:
             if len(items_by_monitor) > 1:
                 raise RuntimeError("HTML and application wallpapers currently cannot be mixed across multiple monitors.")
             method = self.controller.apply(first_item)
             self._save_last_applied(first_item, "single")
             return f"{source_label}: {first_item.name} via {method}"
 
+        if scene_map and video_map:
+            raise RuntimeError("Scene and video wallpapers cannot be auto-applied together across multiple monitors yet.")
+
         parts = []
         if image_map:
-            method = self.controller.set_image_multi(image_map, stop_video=False)
+            method = self.controller.set_image_multi(image_map, stop_video=not bool(scene_map))
             self._save_current_image_monitor_layout(image_map)
             parts.append(f"{len(image_map)} image{'s' if len(image_map) != 1 else ''} via {method}")
         else:
             self._save_current_image_monitor_layout({})
+
+        if scene_map:
+            self._sync_scene_runtime_options()
+            scene_path = next(iter(scene_map.values()))
+            method = self.controller.set_scene(scene_path, monitor_map=scene_map)
+            self._save_current_scene_monitor_layout(scene_map)
+            parts.append(f"{len(scene_map)} scene{'s' if len(scene_map) != 1 else ''} via {method}")
+        else:
+            self._save_current_scene_monitor_layout({})
 
         if video_map:
             method = self.controller.set_video_multi(video_map, audio_enabled_monitors=self._audio_enabled_monitors())
             self._save_current_video_monitor_layout(video_map)
             parts.append(f"{len(video_map)} video{'s' if len(video_map) != 1 else ''} via {method}")
         else:
-            self.controller.stop_video()
+            if not scene_map:
+                self.controller.stop_video()
             self._save_current_video_monitor_layout({})
 
         self._save_last_applied(first_item, "multi")
@@ -2068,26 +2239,26 @@ X-GNOME-WMClass=MintWallpaperStudio
 
     def _build_random_monitor_layout(self) -> dict[str, WallpaperItem]:
         layout: dict[str, WallpaperItem] = {}
-        all_media: list[str] = []
         targets = self._auto_change_monitor_names() if self._auto_scope_effective() == "monitors" else self._monitor_names()
+        family = self._compatible_auto_family_for_targets(targets)
         for monitor in targets:
-            pool = [i for i in self._playlist_pool_for_target(monitor, supported_only=True) if i.media_type in {"image", "video"}]
+            pool = self._playlist_pool_for_target(monitor, supported_only=True)
+            pool = [i for i in pool if i.media_type == family] if family else [i for i in pool if i.media_type in {"image", "video", "scene"}]
             if not pool:
                 continue
             item = self._pick_less_repetitive_random(pool)
-            if not item:
-                continue
-            layout[monitor] = item
-            all_media.append(item.media_type)
+            if item:
+                layout[monitor] = item
         return layout
 
     def _build_playlist_monitor_layout(self) -> dict[str, WallpaperItem]:
         layout: dict[str, WallpaperItem] = {}
-        all_media: list[str] = []
         recent_multi = dict(self.store.data.get("last_applied_multi", {}) or {})
         targets = self._auto_change_monitor_names() if self._auto_scope_effective() == "monitors" else self._monitor_names()
+        family = self._compatible_auto_family_for_targets(targets)
         for monitor in targets:
-            pool = [i for i in self._playlist_pool_for_target(monitor, supported_only=True) if i.media_type in {"image", "video"}]
+            pool = self._playlist_pool_for_target(monitor, supported_only=True)
+            pool = [i for i in pool if i.media_type == family] if family else [i for i in pool if i.media_type in {"image", "video", "scene"}]
             if not pool:
                 continue
             last_path = str(recent_multi.get(monitor, self._get_last_applied_path()) or "")
@@ -2096,9 +2267,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                 if cur.path == last_path:
                     idx = n
                     break
-            item = pool[(idx + 1) % len(pool)]
-            layout[monitor] = item
-            all_media.append(item.media_type)
+            layout[monitor] = pool[(idx + 1) % len(pool)]
         return layout
 
     def _save_last_multi_layout(self, items_by_monitor: dict[str, WallpaperItem]) -> None:
@@ -2134,9 +2303,33 @@ X-GNOME-WMClass=MintWallpaperStudio
         clean = {str(mon): str(path) for mon, path in (mapping or {}).items() if mon and path}
         self.store.data["current_video_monitor_layout"] = clean
 
+    def _get_current_scene_monitor_layout(self) -> dict[str, str]:
+        raw = dict(self.store.data.get("current_scene_monitor_layout", {}) or {})
+        valid = {}
+        for mon in self._monitor_names():
+            path = str(raw.get(mon, "") or "")
+            if path:
+                valid[mon] = path
+        return valid
+
+    def _save_current_scene_monitor_layout(self, mapping: dict[str, str]) -> None:
+        clean = {str(mon): str(path) for mon, path in (mapping or {}).items() if mon and path}
+        self.store.data["current_scene_monitor_layout"] = clean
+
+    def _sync_scene_runtime_options(self) -> None:
+        mode = str(self._monitor_mode_effective() or "shared")
+        scaling = "stretch" if mode == "stretch" else "fill"
+        try:
+            self.controller.set_scene_runtime_options(
+                pause_on_fullscreen=bool(self.store.data.get("pause_on_fullscreen", True)),
+                scaling=scaling,
+            )
+        except Exception:
+            pass
+
     def _primary_monitor_current_item(self):
         primary = self._primary_monitor_name()
-        for mapping_getter in (self._get_current_video_monitor_layout, self._get_current_image_monitor_layout):
+        for mapping_getter in (self._get_current_scene_monitor_layout, self._get_current_video_monitor_layout, self._get_current_image_monitor_layout):
             try:
                 mapping = mapping_getter() or {}
             except Exception:
@@ -2149,6 +2342,52 @@ X-GNOME-WMClass=MintWallpaperStudio
         if current is not None:
             return current
         return self._find_item_by_path(self._get_last_applied_path())
+
+    def _migrate_enabled_states_for_monitor_mode_change(self, previous_mode: str, new_mode: str, previous_target: str | None = None) -> None:
+        previous_mode = str(previous_mode or 'shared')
+        new_mode = str(new_mode or 'shared')
+        previous_target = str(previous_target or self.playlist_target.get() or 'synced')
+        if previous_mode == new_mode:
+            return
+        try:
+            monitor_names = list(self._available_monitor_names() or self._monitor_names() or [])
+        except Exception:
+            monitor_names = []
+        changed = False
+        if new_mode == 'per_monitor':
+            for item in self.all_items():
+                try:
+                    global_enabled = bool(getattr(item, 'enabled', True))
+                    targets = dict(getattr(item, 'enabled_targets', None) or {})
+                    for name in monitor_names:
+                        if name not in targets:
+                            targets[name] = global_enabled
+                            changed = True
+                    item.enabled_targets = targets
+                except Exception:
+                    pass
+        elif previous_mode == 'per_monitor':
+            for item in self.all_items():
+                try:
+                    targets = dict(getattr(item, 'enabled_targets', None) or {})
+                    if not targets:
+                        continue
+                    if previous_target != 'synced' and previous_target in targets:
+                        merged_enabled = bool(targets.get(previous_target, False))
+                    else:
+                        relevant_names = monitor_names or list(targets.keys())
+                        merged_enabled = any(bool(targets.get(name, False)) for name in relevant_names)
+                    if bool(getattr(item, 'enabled', True)) != merged_enabled:
+                        item.enabled = merged_enabled
+                        changed = True
+                except Exception:
+                    pass
+        if changed:
+            try:
+                self._persist_items()
+                self.store.save()
+            except Exception:
+                pass
 
     def _apply_monitor_mode_change_live(self, previous_mode: str, new_mode: str) -> None:
         previous_mode = str(previous_mode or 'shared')
@@ -2188,7 +2427,21 @@ X-GNOME-WMClass=MintWallpaperStudio
                 pass
 
     def _finish_apply_status(self, status: str) -> str:
+        try:
+            active_scene = bool(getattr(self.controller, "is_scene_running", lambda: False)())
+            active_video = bool(getattr(self.controller, "is_video_running", lambda: False)())
+            if active_scene and bool(getattr(self.controller, "scene_paused", False)):
+                resumed = self.controller.resume_scene()
+                self._debug(f"finish apply resumed scene after apply result={resumed}")
+            if active_video and bool(getattr(self.controller, "video_paused", False)):
+                resumed = self.controller.resume_video()
+                self._debug(f"finish apply resumed video after apply result={resumed}")
+        except Exception as exc:
+            self._debug(f"finish apply resume check failed exc={exc}")
+        self.wallpaper_paused_by_user = False
+        self.wallpaper_paused_by_fullscreen = False
         self._schedule_pause_button_refreshes()
+        self._refresh_runtime_state()
         return status
 
     def _apply_item_for_current_monitor_context(self, item: WallpaperItem, source_label: str = "Applied") -> str:
@@ -2199,7 +2452,8 @@ X-GNOME-WMClass=MintWallpaperStudio
         if getattr(item, 'media_type', '') not in {'application', 'html'} and (self.controller.is_app_running() or self.controller.is_html_running()):
             self._debug("apply current context stopping existing application/html runtime before applying new media")
             try:
-                self.controller.stop_video()
+                self.controller.stop_html()
+                self.controller.stop_app()
             except Exception as exc:
                 self._debug(f"apply current context stop runtime exception: {exc}")
         if item.media_type == "application":
@@ -2211,6 +2465,53 @@ X-GNOME-WMClass=MintWallpaperStudio
             method = self.controller.set_application(item.path)
             self._save_last_applied(item, "single")
             return self._finish_apply_status(f"{source_label} on {primary}: {item.name} via {method}")
+        if item.media_type == "scene":
+            self._sync_scene_runtime_options()
+            self._debug(f"scene apply start item={item.path!r} mode={mode!r} target={target!r} monitors={monitors!r}")
+            if mode == "stretch":
+                scene_map = {mon: item.path for mon in monitors} if monitors else {}
+                self._debug(f"scene stretch fallback to shared scene_map={scene_map!r} source={source_label!r}")
+                method = self.controller.set_scene(item.path, monitor_map=scene_map)
+                self._save_current_scene_monitor_layout(scene_map)
+                self._save_last_applied(item, "multi" if len(scene_map) > 1 else "single")
+                return self._finish_apply_status(f"{source_label}: {item.name} via {method} (fallback from Stretch across monitors)")
+            if mode == "per_monitor":
+                effective_target = target
+                if effective_target in {"", "synced"}:
+                    effective_target = self._primary_monitor_name()
+                    if effective_target:
+                        self.playlist_target.set(effective_target)
+                        self.store.data["playlist_target"] = effective_target
+                if effective_target not in monitors:
+                    effective_target = self._primary_monitor_name() if self._primary_monitor_name() in monitors else (monitors[0] if monitors else "")
+                if not effective_target:
+                    raise RuntimeError("No monitor target is selected for Scene wallpaper.")
+                existing_scene_map = self._get_current_scene_monitor_layout()
+                existing_scene_map = {mon: path for mon, path in existing_scene_map.items() if mon in monitors}
+                mirrored_scene_layout = (
+                    bool(existing_scene_map)
+                    and len(existing_scene_map) == len(monitors)
+                    and len(set(existing_scene_map.values())) == 1
+                )
+                scene_map = dict(existing_scene_map)
+                scene_map[effective_target] = item.path
+                if mirrored_scene_layout and not existing_scene_map.get(effective_target):
+                    scene_map = {effective_target: item.path}
+                if not scene_map:
+                    scene_map = {effective_target: item.path}
+                self._debug(f"scene per-monitor apply effective_target={effective_target!r} existing_scene_map={existing_scene_map!r} final_scene_map={scene_map!r}")
+                method = self.controller.set_scene(item.path, monitor_map=scene_map)
+                self._save_current_scene_monitor_layout(scene_map)
+                self._save_last_applied(item, "multi" if len(scene_map) > 1 else "single")
+                return self._finish_apply_status(f"{source_label} to {effective_target}: {item.name} via {method}")
+            scene_map = {mon: item.path for mon in monitors}
+            self._debug(f"scene shared apply final_scene_map={scene_map!r}")
+            method = self.controller.set_scene(item.path, monitor_map=scene_map if len(monitors) > 1 else None)
+            self._save_current_scene_monitor_layout(scene_map if len(monitors) > 1 else {self._primary_monitor_name(): item.path})
+            self._save_last_applied(item, "multi" if len(monitors) > 1 else "single")
+            if len(monitors) > 1:
+                return self._finish_apply_status(f"{source_label}: scene on {len(monitors)} monitors via {method}")
+            return self._finish_apply_status(f"{source_label}: {item.name} via {method}")
         if mode == "stretch":
             if item.media_type == "image":
                 method = self.controller.set_image_stretch(item.path)
@@ -2227,7 +2528,7 @@ X-GNOME-WMClass=MintWallpaperStudio
             return self._finish_apply_status(f"{source_label}: same video on {len(monitors)} monitors via {method}")
         if mode == "per_monitor":
             if target not in {"", "synced"}:
-                if item.media_type == "application":
+                if item.media_type in {"application", "scene"}:
                     primary = self._primary_monitor_name()
                     if target != primary:
                         raise RuntimeError(f"Applications currently only work on the primary monitor ({primary}).")
@@ -2406,7 +2707,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                 src = p
                 if item.media_type == 'html':
                     src = find_html_preview_image(p) or p
-                elif item.media_type == 'application':
+                elif item.media_type in {'application', 'scene'}:
                     pp = Path(getattr(item, 'preview_path', '') or '')
                     src = pp if pp.exists() else None
                 if src is not None:
@@ -2469,8 +2770,15 @@ X-GNOME-WMClass=MintWallpaperStudio
 
     def _refresh_tab_buttons(self):
         current = self.tab_var.get()
+        we_enabled = bool(self.store.data.get("we_enabled", True))
         for key, btn in self.tab_buttons.items():
-            btn.configure(style="TabActive.TButton" if key == current else "Tab.TButton")
+            try:
+                if key == "scene" and not we_enabled:
+                    btn.configure(style="Tab.TButton", state="disabled")
+                else:
+                    btn.configure(style="TabActive.TButton" if key == current else "Tab.TButton", state="normal")
+            except Exception:
+                pass
 
     def _start_active_blink(self):
         if self._blink_job:
@@ -2492,7 +2800,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                 marker = "🌐"
             elif getattr(item, "media_type", "") == "image":
                 marker = "🖼"
-            elif getattr(self.controller, "video_paused", False):
+            elif getattr(self.controller, "video_paused", False) or getattr(self.controller, "scene_paused", False):
                 marker = "⏸"
             else:
                 marker = "▶" if self._blink_on else " "
@@ -2500,6 +2808,12 @@ X-GNOME-WMClass=MintWallpaperStudio
         return f"  {enabled}"
 
     def set_tab(self, key: str):
+        if key == "scene" and not bool(self.store.data.get("we_enabled", True)):
+            self.tab_var.set("all")
+            self.store.data["active_tab"] = "all"
+            self._refresh_tab_buttons()
+            self.refresh_list()
+            return
         self.tab_var.set(key)
         self.store.data["active_tab"] = key
         if key == "applications":
@@ -2507,9 +2821,18 @@ X-GNOME-WMClass=MintWallpaperStudio
             if primary:
                 self.playlist_target.set(primary)
                 self.store.data["playlist_target"] = primary
+        if key == "scene":
+            backend_ready = command_exists("linux-wallpaperengine")
+            self.set_status("Scene backend detected." if backend_ready else "Scene backend not installed. Select a Scene item to install linux-wallpaperengine.")
+        elif key in {"html", "applications"}:
+            if key == "applications":
+                primary = self._primary_monitor_name()
+                self.set_status(f"Applications currently run only on the primary monitor ({primary})." if primary else "Applications currently run only on the primary monitor.")
+            self.root.after(120, lambda k=key: self._maybe_show_category_notice(k))
         self._apply_media_monitor_mode_constraint(self.primary_item(), persist=True)
         self.store.save()
         self._refresh_tab_buttons()
+        self._refresh_monitor_mode_box_values(self.primary_item())
         self._refresh_target_box()
         self.refresh_list()
 
@@ -2603,17 +2926,25 @@ X-GNOME-WMClass=MintWallpaperStudio
             return item.media_type == "image"
         if tab == "videos":
             return item.media_type == "video"
+        if tab == "scene":
+            return item.media_type == "scene"
         if tab == "html":
             return item.media_type == "html"
         if tab == "applications":
             return item.media_type == "application"
-        if tab == "wallpaper_engine":
-            return item.source == "wallpaper_engine"
         return True
 
     def refresh_list(self):
         self._clear_drag_indicator()
         all_items = self.all_items()
+        scene_backend_ready = command_exists("linux-wallpaperengine")
+        for item in all_items:
+            if getattr(item, "media_type", "") == "scene":
+                item.supported = scene_backend_ready
+                note = str(getattr(item, "notes", "") or "")
+                for token in ["preview-only", "install-linux-wallpaperengine", "experimental-linux-wallpaperengine"]:
+                    note = note.replace(token, "").strip()
+                item.notes = (note + (" experimental-linux-wallpaperengine" if scene_backend_ready else " preview-only install-linux-wallpaperengine")).strip()
         query = self.search_var.get().strip().lower()
         items = []
         for item in all_items:
@@ -2657,6 +2988,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                 self.tree.see(active_iid)
             self.on_select()
         else:
+            self._refresh_monitor_mode_box_values(None)
             self.clear_preview("No matching items")
             self.clear_details()
 
@@ -2676,6 +3008,10 @@ X-GNOME-WMClass=MintWallpaperStudio
     def clear_details(self):
         for var in self.detail_vars.values():
             var.set("-")
+        try:
+            self.scene_backend_btn.pack_forget()
+        except Exception:
+            pass
         self._set_inspector_text("No Scene/Web metadata selected", "")
 
     def on_select(self):
@@ -2683,6 +3019,10 @@ X-GNOME-WMClass=MintWallpaperStudio
         if not item:
             try:
                 self.html_debug_btn.pack_forget()
+            except Exception:
+                pass
+            try:
+                self.scene_backend_btn.pack_forget()
             except Exception:
                 pass
             self._close_preview_popup()
@@ -2710,20 +3050,30 @@ X-GNOME-WMClass=MintWallpaperStudio
                 hp = find_html_preview_image(p)
                 if hp is not None:
                     w, h = image_resolution(hp)
-            elif item.media_type == "application":
+            elif item.media_type in {"application", "scene"}:
                 pp = Path(getattr(item, "preview_path", "") or "")
                 if pp.exists():
                     w, h = image_resolution(pp)
         self.detail_vars["Resolution"].set(f"{w}x{h}" if w and h else "-")
         try:
+            self.debug_log_btn.pack(side="right", padx=(0, 8))
             if item.media_type == "html":
                 self.html_debug_btn.pack(side="right")
             else:
                 self.html_debug_btn.pack_forget()
         except Exception:
             pass
+        try:
+            if item.media_type == "scene" and not item.supported:
+                self.scene_backend_btn.pack(side="right", padx=(0, 8))
+            else:
+                self.scene_backend_btn.pack_forget()
+        except Exception:
+            pass
+        self._refresh_monitor_mode_box_values(item)
         self._close_preview_popup()
         self.update_preview(item)
+        self._maybe_prompt_install_scene_backend(item)
 
 
     def _set_inspector_text(self, summary: str, text: str):
@@ -2732,6 +3082,30 @@ X-GNOME-WMClass=MintWallpaperStudio
         self.inspector_text.delete("1.0", "end")
         self.inspector_text.insert("1.0", text or "")
         self.inspector_text.configure(state="disabled")
+
+    def _maybe_prompt_install_scene_backend(self, item: WallpaperItem):
+        if getattr(item, "media_type", "") != "scene":
+            self._last_scene_install_prompt_path = ""
+            return
+        if getattr(item, "supported", False):
+            self._last_scene_install_prompt_path = ""
+            return
+        if self._scene_install_prompt_open:
+            return
+        current_path = str(getattr(item, "path", "") or "")
+        if current_path and self._last_scene_install_prompt_path == current_path:
+            return
+        self._scene_install_prompt_open = True
+        self._last_scene_install_prompt_path = current_path
+        try:
+            answer = self._ask_yes_no(
+                APP_NAME,
+                "This Scene wallpaper needs linux-wallpaperengine to run.\n\nInstall it now?"
+            )
+        finally:
+            self._scene_install_prompt_open = False
+        if answer:
+            self._install_scene_backend()
 
     def _update_scene_inspector(self, item: WallpaperItem):
         props = getattr(item, "scene_properties", None) or {}
@@ -3038,7 +3412,15 @@ X-GNOME-WMClass=MintWallpaperStudio
     def clear_preview(self, message: str):
         self.preview_click_path = None
         self.preview_image = None
-        self.preview_label.configure(image="", text=message, compound="center", fg="#d7e7ff", font=("Segoe UI", 18))
+        font = ("Segoe UI", 18)
+        wrap = 520
+        if "linux-wallpaperengine" in (message or ""):
+            font = ("Segoe UI", 13, "bold")
+            wrap = 500
+        elif len((message or "").splitlines()) >= 2 or len(message or "") > 40:
+            font = ("Segoe UI", 15)
+            wrap = 500
+        self.preview_label.configure(image="", text=message, compound="center", fg="#d7e7ff", font=font, justify="center", wraplength=wrap)
 
     def _decorate_video_thumb(self, img, hover: bool = False):
         if ImageDraw is None or img is None:
@@ -3087,9 +3469,17 @@ X-GNOME-WMClass=MintWallpaperStudio
             self.clear_preview("Preview hidden")
             return
         if not item.supported:
-            self._close_preview_popup()
-            self.clear_preview("Unsupported item\nScene wallpapers are listed, but not directly playable yet.")
-            return
+            if getattr(item, "media_type", "") == "scene":
+                pp = Path(str(getattr(item, 'preview_path', '') or '')).resolve() if str(getattr(item, 'preview_path', '') or '').strip() else None
+                if pp is None or not pp.exists():
+                    self._close_preview_popup()
+                    self.clear_preview("Scene needs linux-wallpaperengine\nto play.")
+                    return
+            else:
+                self._close_preview_popup()
+                msg = "Unsupported item\nThis wallpaper is listed but not directly playable yet."
+                self.clear_preview(msg)
+                return
         p = Path(item.path)
         if not p.exists():
             self.clear_preview("File not found")
@@ -3097,7 +3487,7 @@ X-GNOME-WMClass=MintWallpaperStudio
 
         self._close_preview_popup()
         self.preview_click_path = str(p) if item.media_type in {'video','html','image'} else None
-        if item.media_type == 'application':
+        if item.media_type in {'application', 'scene'}:
             pp = str(getattr(item, 'preview_path', '') or '')
             self.preview_click_path = pp if pp else None
         self.preview_image = None
@@ -3116,6 +3506,10 @@ X-GNOME-WMClass=MintWallpaperStudio
             return f"Status: Paused by Fullscreen • {tray_part}"
         if getattr(self.controller, "is_html_running", lambda: False)():
             return f"Status: Running HTML • {tray_part}"
+        if getattr(self.controller, "is_scene_running", lambda: False)():
+            if getattr(self.controller, "scene_paused", False):
+                return f"Status: Paused Scene • {tray_part}"
+            return f"Status: Running Scene • {tray_part}"
         if self.controller.is_video_running() and self.controller.video_paused:
             if bool(self.store.data.get("video_mute", True)):
                 return f"Status: Paused • Muted • {tray_part}"
@@ -3182,7 +3576,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                 pass
             self._refresh_runtime_state()
             return
-        if not self.controller.is_video_running():
+        if not (self.controller.is_video_running() or getattr(self.controller, "is_scene_running", lambda: False)()):
             try:
                 btn.configure(text="Pause Wallpaper", state="disabled")
             except Exception:
@@ -3196,7 +3590,8 @@ X-GNOME-WMClass=MintWallpaperStudio
                 pass
             self._refresh_runtime_state()
             return
-        label = "Resume Wallpaper" if self.controller.video_paused else "Pause Wallpaper"
+        paused = bool(getattr(self.controller, "video_paused", False) or getattr(self.controller, "scene_paused", False))
+        label = "Resume Wallpaper" if paused else "Pause Wallpaper"
         try:
             btn.configure(text=label, state="normal")
         except Exception:
@@ -3212,29 +3607,104 @@ X-GNOME-WMClass=MintWallpaperStudio
             self.wallpaper_paused_by_user = False
             self.wallpaper_paused_by_fullscreen = False
             self._update_pause_button()
-            self.set_status("Pause is currently only available for video wallpapers.")
+            self.set_status("Pause is currently not available for HTML wallpapers.")
             return
-        if not self.controller.is_video_running():
+        active_scene = bool(getattr(self.controller, "is_scene_running", lambda: False)())
+        active_video = bool(self.controller.is_video_running())
+        if not (active_video or active_scene):
             self.wallpaper_paused_by_user = False
             self.wallpaper_paused_by_fullscreen = False
             self._update_pause_button()
-            self.set_status("No active video wallpaper to pause.")
+            self.set_status("No active video or Scene wallpaper to pause.")
             return
-        if self.controller.video_paused:
-            if self.controller.resume_video():
+        if getattr(self.controller, "scene_paused", False) or self.controller.video_paused:
+            resumed_scene = (self.controller.resume_scene() if active_scene else True)
+            resumed_video = (self.controller.resume_video() if active_video else True)
+            if resumed_scene and resumed_video:
                 self.wallpaper_paused_by_user = False
                 self.wallpaper_paused_by_fullscreen = False
-                self.set_status("Video wallpaper resumed.")
+                if active_scene and active_video:
+                    self.set_status("Video and Scene wallpapers resumed.")
+                else:
+                    self.set_status("Scene wallpaper resumed." if active_scene else "Video wallpaper resumed.")
         else:
-            if self.controller.pause_video():
+            paused_scene = (self.controller.pause_scene() if active_scene else True)
+            paused_video = (self.controller.pause_video() if active_video else True)
+            if paused_scene and paused_video:
                 self.wallpaper_paused_by_user = True
                 self.wallpaper_paused_by_fullscreen = False
-                self.set_status("Video wallpaper paused.")
+                if active_scene and active_video:
+                    self.set_status("Video and Scene wallpapers paused.")
+                else:
+                    self.set_status("Scene wallpaper paused." if active_scene else "Video wallpaper paused.")
         self._update_pause_button()
 
 
+    def _debug_logging_enabled(self) -> bool:
+        try:
+            return bool(self.store.data.get("debug_logging", True))
+        except Exception:
+            return True
+
     def _debug(self, message: str) -> None:
-        return
+        if not self._debug_logging_enabled():
+            return
+        try:
+            DEBUG_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            with DEBUG_LOG_FILE.open("a", encoding="utf-8", errors="ignore") as fh:
+                fh.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [app] {message}\n")
+        except Exception:
+            pass
+
+    def _clear_debug_log(self):
+        try:
+            DEBUG_LOG_FILE.unlink(missing_ok=True)
+            self.set_status("Cleared Mint Wallpaper Studio debug log.")
+        except Exception as exc:
+            self.set_status(f"Could not clear debug log: {exc}")
+
+    def _open_debug_log_window(self):
+        win = tk.Toplevel(self.root)
+        self._style_toplevel(win, title="Mint Wallpaper Studio Debug Log", geometry="1180x800", modal=False)
+        try:
+            win.minsize(960, 680)
+        except Exception:
+            pass
+
+        wrap = ttk.Frame(win, style="Card.TFrame", padding=12)
+        wrap.pack(fill="both", expand=True, padx=12, pady=12)
+
+        top = ttk.Frame(wrap, style="Card.TFrame")
+        top.pack(fill="x")
+        ttk.Label(top, text="Debug Log", style="Title.TLabel").pack(side="left")
+        info_var = tk.StringVar(value=f"Log file: {DEBUG_LOG_FILE}")
+
+        log_text = scrolledtext.ScrolledText(wrap, wrap="word", font=("Consolas", 10))
+        log_text.pack(fill="both", expand=True, pady=(10, 8))
+
+        def refresh_log():
+            log_text.configure(state="normal")
+            log_text.delete("1.0", "end")
+            if DEBUG_LOG_FILE.exists():
+                try:
+                    log_text.insert("1.0", DEBUG_LOG_FILE.read_text(encoding="utf-8", errors="replace"))
+                    info_var.set(f"Showing log: {DEBUG_LOG_FILE}")
+                except Exception as exc:
+                    log_text.insert("1.0", f"Could not read log: {exc}")
+                    info_var.set("Could not read debug log.")
+            else:
+                log_text.insert("1.0", "No Mint Wallpaper Studio debug log found yet.")
+                info_var.set("No debug log found yet.")
+            log_text.configure(state="disabled")
+
+        def clear_log():
+            self._clear_debug_log()
+            refresh_log()
+
+        ttk.Button(top, text="Refresh Log", command=refresh_log).pack(side="right", padx=(8, 0))
+        ttk.Button(top, text="Clear Log", command=clear_log).pack(side="right", padx=(8, 0))
+        ttk.Label(wrap, textvariable=info_var, style="Muted.TLabel").pack(anchor="w")
+        refresh_log()
 
     def _has_fullscreen_window_x11(self):
         if not session_is_x11() or not command_exists("xprop"):
@@ -3396,36 +3866,51 @@ X-GNOME-WMClass=MintWallpaperStudio
             try:
                 tick_no += 1
                 active_video = self.controller.is_video_running()
+                active_scene = bool(getattr(self.controller, "is_scene_running", lambda: False)())
+                active_wallpaper = active_video or active_scene
                 auto_pause_enabled = bool(getattr(self, "pause_on_fullscreen_enabled", True))
-                fullscreen_active = active_video and auto_pause_enabled and self._has_fullscreen_window_x11()
-                state = (bool(active_video), bool(auto_pause_enabled), bool(fullscreen_active), bool(self.controller.video_paused), bool(self.wallpaper_paused_by_fullscreen))
+                fullscreen_active = active_wallpaper and auto_pause_enabled and self._has_fullscreen_window_x11()
+                paused_state = bool(getattr(self.controller, "video_paused", False) or getattr(self.controller, "scene_paused", False))
+                state = (bool(active_video), bool(active_scene), bool(auto_pause_enabled), bool(fullscreen_active), paused_state, bool(self.wallpaper_paused_by_fullscreen))
                 if tick_no <= 5 or tick_no % 10 == 0:
-                    self._debug(f"fullscreen loop heartbeat tick={tick_no} active_video={active_video} auto_pause_enabled={auto_pause_enabled} fullscreen_active={fullscreen_active} video_paused={self.controller.video_paused} paused_by_fullscreen={self.wallpaper_paused_by_fullscreen}")
+                    self._debug(f"fullscreen loop heartbeat tick={tick_no} active_video={active_video} active_scene={active_scene} auto_pause_enabled={auto_pause_enabled} fullscreen_active={fullscreen_active} video_paused={self.controller.video_paused} paused_by_fullscreen={self.wallpaper_paused_by_fullscreen}")
                 if state != self._last_fullscreen_debug_state:
                     self._last_fullscreen_debug_state = state
-                    self._debug(f"fullscreen tick active_video={active_video} auto_pause_enabled={auto_pause_enabled} fullscreen_active={fullscreen_active} video_paused={self.controller.video_paused} paused_by_fullscreen={self.wallpaper_paused_by_fullscreen}")
+                    self._debug(f"fullscreen tick active_video={active_video} active_scene={active_scene} auto_pause_enabled={auto_pause_enabled} fullscreen_active={fullscreen_active} video_paused={self.controller.video_paused} paused_by_fullscreen={self.wallpaper_paused_by_fullscreen}")
 
-                if fullscreen_active and not self.controller.video_paused:
-                    paused = self.controller.pause_video()
-                    self._debug(f"fullscreen pause attempt result={paused}")
+                if fullscreen_active and not (getattr(self.controller, "video_paused", False) or getattr(self.controller, "scene_paused", False)):
+                    paused_scene = (self.controller.pause_scene() if active_scene else True)
+                    paused_video = (self.controller.pause_video() if active_video else True)
+                    paused = bool(paused_scene and paused_video)
+                    self._debug(f"fullscreen pause attempt result={paused} paused_scene={paused_scene} paused_video={paused_video}")
                     if paused:
                         self.wallpaper_paused_by_fullscreen = True
                         self.wallpaper_paused_by_user = False
-                        self._queue_fullscreen_ui_update(status="Paused video wallpaper because a fullscreen window is active.")
+                        if active_scene and active_video:
+                            msg = "Paused video and Scene wallpapers because a fullscreen window is active."
+                        else:
+                            msg = "Paused Scene wallpaper because a fullscreen window is active." if active_scene else "Paused video wallpaper because a fullscreen window is active."
+                        self._queue_fullscreen_ui_update(status=msg)
                 elif (
-                    active_video
-                    and self.controller.video_paused
+                    active_wallpaper
+                    and (getattr(self.controller, "video_paused", False) or getattr(self.controller, "scene_paused", False))
                     and self.wallpaper_paused_by_fullscreen
                     and not fullscreen_active
                 ):
-                    resumed = self.controller.resume_video()
-                    self._debug(f"fullscreen resume attempt result={resumed}")
+                    resumed_scene = (self.controller.resume_scene() if active_scene else True)
+                    resumed_video = (self.controller.resume_video() if active_video else True)
+                    resumed = bool(resumed_scene and resumed_video)
+                    self._debug(f"fullscreen resume attempt result={resumed} resumed_scene={resumed_scene} resumed_video={resumed_video}")
                     if resumed:
                         self.wallpaper_paused_by_fullscreen = False
-                        self._queue_fullscreen_ui_update(status="Resumed video wallpaper after fullscreen window closed.")
-                elif not active_video:
+                        if active_scene and active_video:
+                            msg = "Resumed video and Scene wallpapers after fullscreen window closed."
+                        else:
+                            msg = "Resumed Scene wallpaper after fullscreen window closed." if active_scene else "Resumed video wallpaper after fullscreen window closed."
+                        self._queue_fullscreen_ui_update(status=msg)
+                elif not active_wallpaper:
                     if self.wallpaper_paused_by_fullscreen or self.wallpaper_paused_by_user:
-                        self._debug("fullscreen tick clearing paused flags because no active video")
+                        self._debug("fullscreen tick clearing paused flags because no active video/scene")
                     self.wallpaper_paused_by_fullscreen = False
                     self.wallpaper_paused_by_user = False
                     self._queue_fullscreen_ui_update(refresh_only=True)
@@ -3478,7 +3963,8 @@ X-GNOME-WMClass=MintWallpaperStudio
             self.set_status("No item selected")
             return
         if not item.supported:
-            self._show_info(APP_NAME, "This item is preview-only right now. Scene wallpapers are listed, but not directly playable yet.")
+            msg = "This Scene wallpaper needs linux-wallpaperengine installed before it can be started." if getattr(item, "media_type", "") == "scene" else "This item is preview-only right now."
+            self._show_info(APP_NAME, msg)
             return
         try:
             if item.media_type == "application":
@@ -3515,9 +4001,10 @@ X-GNOME-WMClass=MintWallpaperStudio
         if self.monitor_mode.get() == "per_monitor" and self._auto_scope_effective() in {"workspace", "monitors"}:
             layout = self._build_random_monitor_layout()
             if not layout:
-                self.set_status("No supported image/video playlist items available for the current monitors")
+                self.set_status("No supported image/video/scene playlist items available for the current monitors")
                 return
             try:
+                self._autochange_transition()
                 status = self._apply_items_to_monitor_layout(layout, "Random wallpaper applied")
                 self._save_last_multi_layout(layout)
                 for item in layout.values():
@@ -3540,6 +4027,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                 return
             self._select_item_in_current_view(item)
             try:
+                self._autochange_transition()
                 status = self._apply_item_for_current_monitor_context(item, "Random wallpaper applied")
                 self._remember_random_pick(item)
                 self.set_status(status)
@@ -3827,6 +4315,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                     return
                 self._remember_random_pick(item)
                 self._debug(f"autochange target picked monitor={monitor!r} item={getattr(item, 'path', '')!r} media={getattr(item, 'media_type', '')!r}")
+                self._autochange_transition()
                 self._apply_item_for_current_monitor_context(item, f"Random wallpaper applied to {monitor}")
                 applied_item = item
             elif mode == "playlist":
@@ -3843,6 +4332,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                         break
                 item = pool[(idx + 1) % len(pool)]
                 self._debug(f"autochange target picked monitor={monitor!r} item={getattr(item, 'path', '')!r} media={getattr(item, 'media_type', '')!r} last_path={last_path!r}")
+                self._autochange_transition()
                 self._apply_item_for_current_monitor_context(item, f"Playlist wallpaper applied to {monitor}")
                 applied_item = item
         finally:
@@ -4014,10 +4504,11 @@ X-GNOME-WMClass=MintWallpaperStudio
 
     def _build_playlist_monitor_layout_for_targets(self, targets: list[str]) -> dict[str, WallpaperItem]:
         layout: dict[str, WallpaperItem] = {}
-        all_media: list[str] = []
         recent_multi = dict(self.store.data.get("last_applied_multi", {}) or {})
+        family = self._compatible_auto_family_for_targets(targets)
         for monitor in targets:
-            pool = [i for i in self._playlist_pool_for_target(monitor, supported_only=True) if i.media_type in {"image", "video"}]
+            pool = self._playlist_pool_for_target(monitor, supported_only=True)
+            pool = [i for i in pool if i.media_type == family] if family else [i for i in pool if i.media_type in {"image", "video", "scene"}]
             if not pool:
                 continue
             last_path = str(recent_multi.get(monitor, self._get_last_applied_path()) or "")
@@ -4026,23 +4517,20 @@ X-GNOME-WMClass=MintWallpaperStudio
                 if cur.path == last_path:
                     idx = n
                     break
-            item = pool[(idx + 1) % len(pool)]
-            layout[monitor] = item
-            all_media.append(item.media_type)
+            layout[monitor] = pool[(idx + 1) % len(pool)]
         return layout
 
     def _build_random_monitor_layout_for_targets(self, targets: list[str]) -> dict[str, WallpaperItem]:
         layout: dict[str, WallpaperItem] = {}
-        all_media: list[str] = []
+        family = self._compatible_auto_family_for_targets(targets)
         for monitor in targets:
-            pool = [i for i in self._playlist_pool_for_target(monitor, supported_only=True) if i.media_type in {"image", "video"}]
+            pool = self._playlist_pool_for_target(monitor, supported_only=True)
+            pool = [i for i in pool if i.media_type == family] if family else [i for i in pool if i.media_type in {"image", "video", "scene"}]
             if not pool:
                 continue
             item = self._pick_less_repetitive_random(pool)
-            if not item:
-                continue
-            layout[monitor] = item
-            all_media.append(item.media_type)
+            if item:
+                layout[monitor] = item
         return layout
 
     def _per_monitor_auto_targets(self, mode_name: str) -> list[str]:
@@ -4066,9 +4554,10 @@ X-GNOME-WMClass=MintWallpaperStudio
         if self.monitor_mode.get() == "per_monitor" and (self._auto_scope_effective() != "target" or bool(self.store.data.get("auto_change_per_monitor_enabled", False))):
             layout = self._build_playlist_monitor_layout_for_targets(self._per_monitor_auto_targets("playlist"))
             if not layout:
-                self.set_status("No supported image/video playlist items available for the current monitors")
+                self.set_status("No supported image/video/scene playlist items available for the current monitors")
                 return
             try:
+                self._autochange_transition()
                 status = self._apply_items_to_monitor_layout(layout, "Playlist wallpaper applied")
                 self._save_last_multi_layout(layout)
                 self.set_status(status)
@@ -4094,6 +4583,7 @@ X-GNOME-WMClass=MintWallpaperStudio
         item = pool[(idx + 1) % len(pool)]
         self._select_item_in_current_view(item)
         try:
+            self._autochange_transition()
             status = self._apply_item_for_current_monitor_context(item, "Playlist wallpaper applied")
             self.set_status(status)
             self.refresh_list()
@@ -4371,6 +4861,244 @@ X-GNOME-WMClass=MintWallpaperStudio
         except Exception as exc:
             self.set_status(f'Could not open prefix folder: {exc}')
 
+
+    def _install_scene_backend(self):
+        item = self.primary_item()
+        if item and getattr(item, "media_type", "") != "scene":
+            self.set_status("Scene backend install is only needed for Scene wallpapers.")
+            return
+        if command_exists("linux-wallpaperengine"):
+            self.set_status("linux-wallpaperengine is already installed.")
+            self.refresh_list()
+            self.on_select()
+            return
+
+        app_pid = os.getpid()
+        script = """#!/usr/bin/env bash
+set -u
+APP_PID="__APP_PID__"
+LOG_DIR="$HOME/.local/share/mint-wallpaper-studio"
+LOG_FILE="$LOG_DIR/scene-installer.log"
+mkdir -p "$LOG_DIR"
+: > "$LOG_FILE"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+echo
+echo "Mint Wallpaper Studio - Scene backend installer"
+echo "Log file: $LOG_FILE"
+echo "This will install linux-wallpaperengine build dependencies, clone/update the project,"
+echo "build it into your home directory, and add a launcher under ~/.local/bin."
+echo
+
+finish() {
+  local code=$?
+  echo
+  if [ $code -eq 0 ]; then
+    echo "Installation finished successfully."
+    echo "Mint Wallpaper Studio must be restarted to detect the Scene backend."
+    PROMPT_TEXT="Mint Wallpaper Studio must be restarted now to use Scene wallpapers.
+
+Click Restart to close this instance and open it again."
+    if command -v zenity >/dev/null 2>&1; then
+      if zenity --question --title="Mint Wallpaper Studio" --width=420 --ok-label="Restart now" --cancel-label="Later" --text="$PROMPT_TEXT"; then
+        mkdir -p /tmp/mint-wallpaper-studio
+        printf 'restart_now
+%s
+' "$(date +%s)" > /tmp/mint-wallpaper-studio/command.txt
+        sleep 1
+      else
+        echo "Restart skipped by user. Please restart Mint Wallpaper Studio manually later."
+      fi
+    elif command -v xmessage >/dev/null 2>&1; then
+      xmessage -center "$PROMPT_TEXT"
+      mkdir -p /tmp/mint-wallpaper-studio
+      printf 'restart_now
+%s
+' "$(date +%s)" > /tmp/mint-wallpaper-studio/command.txt
+      sleep 1
+    else
+      echo "$PROMPT_TEXT"
+      read -rp "Press Enter to restart Mint Wallpaper Studio now, or Ctrl+C to leave it closed... " _
+      mkdir -p /tmp/mint-wallpaper-studio
+      printf 'restart_now
+%s
+' "$(date +%s)" > /tmp/mint-wallpaper-studio/command.txt
+      sleep 1
+    fi
+    exit 0
+  else
+    echo "Installation failed with exit code $code."
+    echo "The full log was saved to: $LOG_FILE"
+    read -rp "Press Enter to close this window... " _
+    exit $code
+  fi
+}
+trap finish EXIT
+
+read -rp "Press Enter to continue or Ctrl+C to cancel... " _
+
+if ! command -v sudo >/dev/null 2>&1; then
+  echo "sudo is required but was not found."
+  exit 1
+fi
+
+if ! command -v apt-get >/dev/null 2>&1; then
+  echo "This guided installer currently supports Debian/Ubuntu/Linux Mint systems with apt."
+  exit 1
+fi
+
+. /etc/os-release 2>/dev/null || true
+MPV_PKG="libmpv2"
+if [ "${VERSION_ID:-}" = "22.04" ]; then
+  MPV_PKG="libmpv1"
+fi
+
+echo
+echo "Installing required packages..."
+sudo apt-get update
+sudo apt-get install -y git build-essential cmake libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev libglew-dev freeglut3-dev libsdl2-dev liblz4-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libxxf86vm-dev libglm-dev libglfw3-dev libmpv-dev mpv "$MPV_PKG" libpulse-dev libpulse0 libfftw3-dev
+
+SRC_DIR="$HOME/.local/share/linux-wallpaperengine-src"
+mkdir -p "$HOME/.local/share" "$HOME/.local/bin"
+if [ -d "$SRC_DIR/.git" ]; then
+  echo "Updating existing linux-wallpaperengine source..."
+  git -C "$SRC_DIR" fetch --all --tags --prune
+  git -C "$SRC_DIR" reset --hard origin/HEAD || git -C "$SRC_DIR" pull --ff-only
+  git -C "$SRC_DIR" submodule sync --recursive
+  git -C "$SRC_DIR" submodule update --init --recursive --force
+else
+  echo "Cloning linux-wallpaperengine..."
+  rm -rf "$SRC_DIR"
+  git clone --recurse-submodules https://github.com/Almamu/linux-wallpaperengine.git "$SRC_DIR"
+  git -C "$SRC_DIR" submodule sync --recursive
+  git -C "$SRC_DIR" submodule update --init --recursive --force
+fi
+
+if [ ! -e "$SRC_DIR/CMakeLists.txt" ]; then
+  echo "The source tree looks incomplete: $SRC_DIR/CMakeLists.txt is missing."
+  exit 1
+fi
+
+CEF_HIT="$(find "$SRC_DIR" -name CEFConfig.cmake -o -name cef-config.cmake -o -path '*/CEF/*' | head -n 1 || true)"
+if [ -z "$CEF_HIT" ]; then
+  echo "CEF files were not found in the source tree after submodule setup."
+  echo "This usually means the repository or one of its submodules did not download correctly."
+  echo "Removing the local source tree and cloning again..."
+  rm -rf "$SRC_DIR"
+  git clone --recurse-submodules https://github.com/Almamu/linux-wallpaperengine.git "$SRC_DIR"
+  git -C "$SRC_DIR" submodule sync --recursive
+  git -C "$SRC_DIR" submodule update --init --recursive --force
+fi
+
+echo
+build_ok=0
+for attempt in 1 2 3; do
+  rm -rf "$SRC_DIR/build"
+  mkdir -p "$SRC_DIR/build"
+  echo "Building linux-wallpaperengine... (attempt $attempt/3)"
+  if cmake -S "$SRC_DIR" -B "$SRC_DIR/build" -DCMAKE_BUILD_TYPE=Release &&      cmake --build "$SRC_DIR/build" -j"$(nproc)"; then
+    build_ok=1
+    break
+  fi
+  echo
+  echo "Build attempt $attempt failed."
+  echo "Removing cached CEF downloads before retrying..."
+  rm -rf "$SRC_DIR/build/cef"
+  find "$SRC_DIR" -type f \( -name 'cef_binary_*_linux64_minimal.tar.bz2' -o -name 'cef_binary_*_linux64_minimal.tar.bz2.sha1' \) -delete 2>/dev/null || true
+  echo
+ done
+
+if [ $build_ok -ne 1 ]; then
+  echo "linux-wallpaperengine build failed after multiple attempts."
+  exit 1
+fi
+
+OUT_DIR="$SRC_DIR/build/output"
+BIN="$OUT_DIR/linux-wallpaperengine"
+if [ ! -x "$BIN" ]; then
+  echo "Build finished but linux-wallpaperengine was not found at: $BIN"
+  exit 1
+fi
+
+cat > "$HOME/.local/bin/linux-wallpaperengine" <<'EOF'
+#!/usr/bin/env bash
+exec "__BIN__" "$@"
+EOF
+sed -i "s|__BIN__|$BIN|g" "$HOME/.local/bin/linux-wallpaperengine"
+chmod +x "$HOME/.local/bin/linux-wallpaperengine"
+""".replace("__APP_PID__", str(app_pid))
+        script_path = Path(tempfile.gettempdir()) / "mws-install-scene-backend.sh"
+        try:
+            script_path.write_text(script)
+            script_path.chmod(0o755)
+        except Exception as exc:
+            self._show_error(APP_NAME, f"Could not prepare installer script: {exc}")
+            return
+
+        shell_cmd = f'bash {shlex.quote(str(script_path))}'
+        candidates = [
+            ['x-terminal-emulator', '-e', 'bash', '-lc', shell_cmd],
+            ['gnome-terminal', '--', 'bash', '-lc', shell_cmd],
+            ['xfce4-terminal', '--command', f'bash -lc {shlex.quote(shell_cmd)}'],
+            ['tilix', '-e', 'bash', '-lc', shell_cmd],
+            ['konsole', '-e', 'bash', '-lc', shell_cmd],
+            ['xterm', '-e', 'bash', '-lc', shell_cmd],
+        ]
+        for cmd in candidates:
+            if not shutil.which(cmd[0]):
+                continue
+            try:
+                proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                self._focus_window_for_pid(getattr(proc, 'pid', None))
+                self.set_status('Opened guided Scene backend installer in a terminal.')
+                self.root.after(2500, self._refresh_scene_backend_state)
+                self.root.after(8000, self._refresh_scene_backend_state)
+                return
+            except Exception:
+                continue
+        self._show_error(APP_NAME, 'No supported terminal launcher was found for the guided Scene backend installer.')
+
+    def _focus_window_for_pid(self, pid):
+        if not pid:
+            return
+
+        def _activate():
+            pid_text = str(pid)
+            try:
+                if shutil.which('xdotool'):
+                    subprocess.Popen(
+                        ['xdotool', 'search', '--sync', '--onlyvisible', '--pid', pid_text, 'windowactivate'],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    return
+            except Exception:
+                pass
+            try:
+                if shutil.which('wmctrl'):
+                    out = subprocess.check_output(['wmctrl', '-lp'], text=True, stderr=subprocess.DEVNULL)
+                    for line in reversed(out.splitlines()):
+                        parts = line.split(None, 4)
+                        if len(parts) >= 4 and parts[2] == pid_text:
+                            subprocess.Popen(['wmctrl', '-ia', parts[0]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            return
+            except Exception:
+                pass
+
+        try:
+            self.root.after(200, _activate)
+            self.root.after(900, _activate)
+            self.root.after(1800, _activate)
+        except Exception:
+            _activate()
+
+    def _refresh_scene_backend_state(self):
+        try:
+            self.refresh_list()
+            self.on_select()
+        except Exception:
+            pass
+
     def _open_application_prefix_terminal(self):
         info = self._get_application_runtime_info()
         prefix = Path(str(info.get('prefix_dir') or '').strip())
@@ -4488,6 +5216,7 @@ X-GNOME-WMClass=MintWallpaperStudio
         start_minimized_autostart_var = tk.BooleanVar(value=bool(self.store.data.get("start_minimized_autostart", self.store.data.get("start_minimized", False))))
         close_to_tray_var = tk.BooleanVar(value=bool(self.store.data.get("close_to_tray", True)))
         tray_close_notice_var = tk.BooleanVar(value=bool(self.store.data.get("tray_close_notice", True)))
+        debug_logging_var = tk.BooleanVar(value=bool(self.store.data.get("debug_logging", True)))
         detected_monitors = ", ".join([self._monitor_display_name(m) for m in self.monitors]) or "None detected"
         selected_monitor_names = set(self._selected_monitor_names())
         options_snapshot_store = copy.deepcopy(self.store.data)
@@ -4531,10 +5260,10 @@ X-GNOME-WMClass=MintWallpaperStudio
         fullscreen_box = section(general_tab, "Fullscreen behavior", 0, 1)
         ttk.Checkbutton(
             fullscreen_box,
-            text="Pause video wallpaper while a fullscreen window is active (X11)",
+            text="Pause video and Scene wallpapers while a fullscreen window is active (X11)",
             variable=pause_on_fullscreen_var,
         ).pack(anchor="w", padx=8, pady=(6, 3))
-        ttk.Label(fullscreen_box, text="Pause video wallpapers when a game or browser goes fullscreen.", style="PanelMuted.TLabel", wraplength=420, justify="left").pack(anchor="w", padx=8, pady=(0, 8))
+        ttk.Label(fullscreen_box, text="Pause video and Scene wallpapers when a game or browser goes fullscreen.", style="PanelMuted.TLabel", wraplength=420, justify="left").pack(anchor="w", padx=8, pady=(0, 8))
 
         startup_box = section(general_tab, "Startup", 1, 0)
         ttk.Checkbutton(startup_box, text="Start automatically on login", variable=autostart_var).pack(anchor="w", padx=8, pady=(6, 2))
@@ -4542,6 +5271,14 @@ X-GNOME-WMClass=MintWallpaperStudio
         ttk.Checkbutton(startup_box, text="Start minimized on system startup", variable=start_minimized_autostart_var).pack(anchor="w", padx=8, pady=2)
         ttk.Checkbutton(startup_box, text="Keep app running in tray when clicking X", variable=close_to_tray_var).pack(anchor="w", padx=10, pady=(2, 2))
         ttk.Checkbutton(startup_box, text="Show a tray message when the window is closed to the applet", variable=tray_close_notice_var).pack(anchor="w", padx=10, pady=(2, 2))
+
+        diagnostics_box = section(general_tab, "Diagnostics", 1, 1)
+        ttk.Checkbutton(diagnostics_box, text="Enable detailed debug logging", variable=debug_logging_var).pack(anchor="w", padx=8, pady=(6, 2))
+        ttk.Label(diagnostics_box, text="Useful before GitHub releases or when tracking monitor, auto change, fullscreen, Scene, and video issues.", style="PanelMuted.TLabel", wraplength=420, justify="left").pack(anchor="w", padx=8, pady=(0, 8))
+        diag_btns = ttk.Frame(diagnostics_box)
+        diag_btns.pack(fill="x", padx=8, pady=(0, 8))
+        ttk.Button(diag_btns, text="Open Debug Log", command=self._open_debug_log_window).pack(side="left")
+        ttk.Button(diag_btns, text="Clear Debug Log", command=self._clear_debug_log).pack(side="left", padx=(8, 0))
 
         audio_box = section(playback_tab, "Video wallpaper audio", 0, 0)
         ttk.Label(audio_box, text="Choose how video wallpaper audio should behave.", style="PanelMuted.TLabel", wraplength=420, justify="left").pack(anchor="w", padx=8, pady=(8, 4))
@@ -4896,6 +5633,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                 auto_per_monitor_preference["value"] = bool(auto_per_monitor_enabled_var.get())
                 auto_per_monitor_enabled_var.set(False)
             target_value = self.playlist_target.get() or live_preview_state.get("playlist_target") or "synced"
+            previous_target_value = str(target_value or "synced")
             if selected_mode != "per_monitor":
                 target_value = "synced"
             if self.monitor_mode.get() != selected_mode:
@@ -4915,6 +5653,10 @@ X-GNOME-WMClass=MintWallpaperStudio
                 pass
             self._refresh_target_box()
             if previous_mode is not None and previous_mode != selected_mode:
+                try:
+                    self._migrate_enabled_states_for_monitor_mode_change(previous_mode, selected_mode, previous_target_value)
+                except Exception:
+                    pass
                 try:
                     self._apply_monitor_mode_change_live(previous_mode, selected_mode)
                 except Exception:
@@ -4985,7 +5727,7 @@ X-GNOME-WMClass=MintWallpaperStudio
         we_box = section(general_tab, "Wallpaper Engine integration", 2, 0)
         ttk.Checkbutton(we_box, text="Enable Wallpaper Engine library integration", variable=we_var).pack(anchor="w", padx=8, pady=(6, 2))
         we_dep_widgets = []
-        show_unsupported_cb = ttk.Checkbutton(we_box, text="Show unsupported Wallpaper Engine items", variable=show_unsupported_var)
+        show_unsupported_cb = ttk.Checkbutton(we_box, text="Show preview-only / unsupported Wallpaper Engine items", variable=show_unsupported_var)
         show_unsupported_cb.pack(anchor="w", padx=28, pady=(2, 8))
         we_dep_widgets.append(show_unsupported_cb)
         ttk.Label(we_box, text="Preview and scene inspector data for Wallpaper Engine items depend on the local workshop files and available previews.", style="PanelMuted.TLabel", wraplength=420, justify="left").pack(anchor="w", padx=8, pady=(0, 8))
@@ -5031,6 +5773,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                     self.auto_change_scope_var.set(str(self.store.data.get("auto_change_scope", "workspace")))
                     self.controller.set_audio_monitor_enabled(list(snapshot_audio_enabled))
                     self.controller.set_audio_options(snapshot_audio_volume, snapshot_audio_mute)
+                    self._sync_scene_runtime_options()
                     self.controller.apply_audio_live()
                     self._refresh_target_box()
                     try:
@@ -5060,6 +5803,7 @@ X-GNOME-WMClass=MintWallpaperStudio
             we_was_enabled = bool(self.store.data.get("we_enabled", True))
             old_selected_monitors = set(self._selected_monitor_names())
             old_monitor_mode = str(self.store.data.get("monitor_mode", self.monitor_mode.get() or "shared") or "shared")
+            old_playlist_target = str(self.store.data.get("playlist_target", self.playlist_target.get() or "synced") or "synced")
 
             self.store.data["copy_into_library"] = copy_var.get()
             self.store.data["autostart"] = autostart_var.get()
@@ -5090,6 +5834,7 @@ X-GNOME-WMClass=MintWallpaperStudio
             self.store.data["close_to_tray"] = close_to_tray_var.get()
             self.close_to_tray_pref.set(close_to_tray_var.get())
             self.store.data["tray_close_notice"] = tray_close_notice_var.get()
+            self.store.data["debug_logging"] = bool(debug_logging_var.get())
             self.store.data.pop("tray_menu_peek", None)
 
             chosen_monitors = [name for name, var in monitor_vars.items() if bool(var.get())]
@@ -5126,6 +5871,7 @@ X-GNOME-WMClass=MintWallpaperStudio
             self.preview_enabled.set(preview_var.get())
             self.show_unsupported_we.set(bool(self.store.data["show_unsupported_we"]))
             self.controller.set_audio_options(int(self.store.data["video_volume"]), bool(self.store.data["video_mute"]))
+            self._sync_scene_runtime_options()
             try:
                 self.controller.apply_audio_live()
             except Exception:
@@ -5136,7 +5882,7 @@ X-GNOME-WMClass=MintWallpaperStudio
 
             if removed_monitors:
                 try:
-                    self.controller.stop_video()
+                    self.controller.stop_dynamic_wallpapers()
                     self._update_pause_button()
                 except Exception:
                     pass
@@ -5158,6 +5904,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                 repr(dict(self.store.data.get("auto_change_per_monitor", {}) or {})),
             )
 
+            self._migrate_enabled_states_for_monitor_mode_change(old_monitor_mode, selected_mode, old_playlist_target)
             self.store.save()
             self._refresh_target_box()
             try:
@@ -5296,8 +6043,8 @@ X-GNOME-WMClass=MintWallpaperStudio
             chosen = []
             for idx, item in enumerate(order):
                 if checked[idx].get():
-                    if item.media_type in {"application", "html"}:
-                        item.enabled = False
+                    mt = str(getattr(item, "media_type", "") or "").lower()
+                    item.enabled = mt in {"image", "video", "scene"}
                     chosen.append(item)
             self.we_items = chosen
             self.store.data['we_paths'] = [str(p) for p in roots]
@@ -5411,10 +6158,13 @@ X-GNOME-WMClass=MintWallpaperStudio
 
         checked = {}
         order = list(scanned_items)
+        default_enabled_types = {"image", "video", "scene"}
         for idx, item in enumerate(order):
-            checked[idx] = tk.BooleanVar(value=True)
+            mt = str(getattr(item, "media_type", "") or "").lower()
+            default_checked = mt in default_enabled_types
+            checked[idx] = tk.BooleanVar(value=default_checked)
             status = "New" if self._we_item_key(item) not in existing_keys else "Update"
-            tree.insert("", "end", iid=str(idx), values=("☑ Yes", item.media_type.title(), item.name, status))
+            tree.insert("", "end", iid=str(idx), values=(("☑ Yes" if default_checked else "☐ No"), item.media_type.title(), item.name, status))
 
         popup_preview = {"img": None}
         edit_box = {"widget": None, "idx": None}
@@ -5442,7 +6192,7 @@ X-GNOME-WMClass=MintWallpaperStudio
                 hp = find_html_preview_image(p)
                 if hp is not None:
                     img_path = render_image_preview_file(hp, (430, 245))
-            elif item.media_type == "application":
+            elif item.media_type in {"application", "scene"}:
                 pp = Path(getattr(item, "preview_path", "") or "")
                 if pp.exists():
                     img_path = render_image_preview_file(pp, (430, 245))
@@ -5895,7 +6645,7 @@ X-GNOME-Autostart-enabled=true
             pass
 
         try:
-            self.controller.stop_video()
+            self.controller.stop_dynamic_wallpapers()
             self._update_pause_button()
         except Exception:
             pass
@@ -5969,7 +6719,7 @@ X-GNOME-Autostart-enabled=true
     def _tray_menu(self):
         if pystray is None:
             return None
-        paused = bool(self.controller.is_video_running() and self.controller.video_paused)
+        paused = bool((self.controller.is_video_running() and self.controller.video_paused) or (getattr(self.controller, "is_scene_running", lambda: False)() and getattr(self.controller, "scene_paused", False)))
         pause_text = "Resume Wallpaper" if paused else "Pause Wallpaper"
         mute_text = "Unmute Wallpaper" if bool(self.store.data.get("video_mute", True)) else "Mute Wallpaper"
         status_text = self._runtime_state_text().replace("Status: ", "Current Status: ")
@@ -5986,7 +6736,7 @@ X-GNOME-Autostart-enabled=true
             pystray.MenuItem("Show Mint Wallpaper Studio", schedule(self._show_from_tray), default=True),
             pystray.MenuItem("Peek Desktop", schedule(self._peek_desktop_temporarily)),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem(pause_text if not html_running else "Pause unavailable for HTML", schedule(self.toggle_wallpaper_pause), enabled=lambda item: self.controller.is_video_running() and not self.wallpaper_paused_by_fullscreen and not html_running),
+            pystray.MenuItem(pause_text if not html_running else "Pause unavailable for HTML", schedule(self.toggle_wallpaper_pause), enabled=lambda item: (self.controller.is_video_running() or getattr(self.controller, "is_scene_running", lambda: False)()) and not self.wallpaper_paused_by_fullscreen and not html_running),
             pystray.MenuItem(mute_text, schedule(self.toggle_tray_mute)),
             pystray.MenuItem("Volume...", schedule(self.show_tray_volume_window)),
             pystray.Menu.SEPARATOR,
@@ -6030,6 +6780,7 @@ X-GNOME-Autostart-enabled=true
         self.store.data["video_volume"] = volume
         self.store.data["video_mute"] = mute
         self.controller.set_audio_options(volume, mute)
+        self._sync_scene_runtime_options()
 
         if changed and reapply:
             try:
@@ -6399,10 +7150,10 @@ X-GNOME-Autostart-enabled=true
         if Gtk is None:
             return
         try:
-            paused = bool(self.controller.is_video_running() and self.controller.video_paused)
+            paused = bool((self.controller.is_video_running() and self.controller.video_paused) or (getattr(self.controller, "is_scene_running", lambda: False)() and getattr(self.controller, "scene_paused", False)))
             pause_text = "Resume Wallpaper" if paused else "Pause Wallpaper"
             mute_text = "Unmute Wallpaper" if bool(self.store.data.get("video_mute", True)) else "Mute Wallpaper"
-            pause_sensitive = self.controller.is_video_running() and not self.wallpaper_paused_by_fullscreen
+            pause_sensitive = (self.controller.is_video_running() or getattr(self.controller, "is_scene_running", lambda: False)()) and not self.wallpaper_paused_by_fullscreen
             if self.tray_status_item is not None:
                 self.tray_status_item.set_label(self._runtime_state_text().replace("Status: ", "Current Status: "))
             if self.tray_now_playing_item is not None:
@@ -6627,7 +7378,7 @@ X-GNOME-Autostart-enabled=true
         self.store.save()
         self._close_preview_popup()
         self._stop_preview_video()
-        self.controller.stop_video()
+        self.controller.stop_dynamic_wallpapers()
         self._update_pause_button()
         self._destroy_tray_icon()
         if self.preview_tmp:

@@ -103,8 +103,27 @@ def open_in_file_manager(path: Path) -> None:
     subprocess.Popen(["xdg-open", str(p)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def resolve_command_path(name: str) -> Optional[str]:
+    if name == "linux-wallpaperengine":
+        direct = shutil.which(name)
+        if direct:
+            return direct
+        candidates = [
+            Path.home() / ".local/bin/linux-wallpaperengine",
+            Path.home() / ".local/share/linux-wallpaperengine-src/build/output/linux-wallpaperengine",
+        ]
+        for candidate in candidates:
+            try:
+                if candidate.exists() and os.access(candidate, os.X_OK):
+                    return str(candidate)
+            except Exception:
+                pass
+        return None
+    return shutil.which(name)
+
+
 def command_exists(name: str) -> bool:
-    return shutil.which(name) is not None
+    return resolve_command_path(name) is not None
 
 
 def session_is_x11() -> bool:

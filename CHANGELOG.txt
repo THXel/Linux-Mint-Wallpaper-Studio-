@@ -1,3 +1,143 @@
+Mint Wallpaper Studio 1.1.8.11
+
+- Fixed a bug where changing monitor mode could make wallpaper entries appear as Off
+- Shared -> Different per monitor now carries over the existing shared On/Off state
+- Different per monitor -> Same on all monitors / Stretch across monitors now merges monitor states back more safely
+- Continued stability and release-hardening improvements for Scene, video, and monitor-mode workflows
+
+Mint Wallpaper Studio 1.1.8.10
+
+- Added a built-in Mint Wallpaper Studio debug log viewer
+- Added an option to enable or disable detailed debug logging
+- Added a button to clear the main debug log from the UI
+- Improved fullscreen option wording to reflect video and Scene pause behavior
+- Added clearer application monitor limitation status messaging
+- Improved release diagnostics workflow for GitHub-ready testing
+
+Mint Wallpaper Studio 1.1.8.8
+
+- Fixed a core runtime conflict where video stop logic also killed Scene wallpapers
+- Split dynamic wallpaper shutdown into dedicated video, Scene, HTML, and application stop paths
+- Fixed Scene + video mixed-monitor handling so applying one no longer unintentionally tears down the other
+- Fixed pause/resume state handling so Scene and video no longer share a broken paused flag
+- Fullscreen auto-pause now pauses and resumes mixed Scene + video setups together
+- Manual pause/resume now works correctly for mixed Scene + video setups
+- Improved apply-finish recovery so paused Scene/video runtimes resume cleanly after monitor-target changes and auto-change transitions
+
+Mint Wallpaper Studio 1.1.8.7
+
+- Added Wallpaper Engine Scene support to the app workflow
+- Added guided linux-wallpaperengine installer from inside Mint Wallpaper Studio
+- Added backend detection and restart flow after Scene backend installation
+- Fixed linux-wallpaperengine wrapper argument forwarding
+- Added automatic X11 monitor detection for Scene playback
+- Scene now works in Same on all monitors
+- Scene now works in Different per monitor
+- Scene in Stretch across monitors now falls back safely instead of trying unsupported direct spanning
+- Added Scene category to the library UI and removed the separate Wallpaper Engine category
+- Scene preview handling improved
+- Scene can pause/resume on fullscreen similar to video wallpapers
+- Wallpaper Engine integration toggle now hides the Sync button and disables the Scene category when turned off
+- Wallpaper Engine Sync defaults now import Pictures, Videos and Scene as enabled by default
+- HTML and Applications stay disabled by default after sync
+- Applications are now primary-monitor only in the UI
+- Added a softer Auto Change transition to reduce hard wallpaper switches
+- Improved Auto Change compatibility and fallback behavior for Scene wallpapers
+- Mixed Scene/video handling was adjusted further, though additional polish may still be needed
+
+Mint Wallpaper Studio 1.1.8.6
+
+- Attempted mixed Scene/video pause-state fix
+
+Mint Wallpaper Studio 1.1.8.5
+
+- Added a short fade transition for Auto Change
+- Improved Auto Change behavior for Scene-aware monitor layouts
+
+Mint Wallpaper Studio 1.1.8.4
+
+- Fixed Wallpaper Engine Sync defaults and type handling
+- Restored HTML and Application items in the sync results
+
+Mint Wallpaper Studio 1.1.8.3
+
+- Set Wallpaper Engine Sync defaults to enable Pictures, Videos and Scene
+- Kept HTML and Applications disabled by default
+
+Mint Wallpaper Studio 1.1.8.2
+
+- Improved Scene preview behavior
+- Added fullscreen pause/resume support for Scene wallpapers
+- Hides Wallpaper Engine UI elements when integration is disabled
+
+Mint Wallpaper Studio 1.1.8.1
+
+- Applications are now treated as primary-monitor only in the monitor-mode UI
+
+Mint Wallpaper Studio 1.1.8.0
+
+- Added safe fallback when Scene is encountered while global Across mode is active
+
+Mint Wallpaper Studio 1.1.7.9
+
+- Disabled direct Stretch across monitors mode for Scene wallpapers
+
+Mint Wallpaper Studio 1.1.7.8
+
+- First experimental attempt at Stretch across monitors support for Scene wallpapers
+
+Mint Wallpaper Studio 1.1.7.7
+
+- Fixed Scene per-monitor state merging for Different per monitor
+
+Mint Wallpaper Studio 1.1.7.6
+
+- Fixed Scene apply path so monitor maps are passed correctly
+
+Mint Wallpaper Studio 1.1.7.5
+
+- Added extra debug logging for Scene monitor mapping and runtime startup
+
+Mint Wallpaper Studio 1.1.7.4
+
+- Fix Scene mode handling for Different per monitor
+- Scene now defaults per-monitor target to primary instead of mirroring all monitors when target is synced
+- Stretch across monitors now shows a clear unsupported message for Scene instead of acting like Same on all monitors
+
+Mint Wallpaper Studio 1.1.6.9
+
+- Fixed the post-install restart flow by using the app's own instance handling more reliably
+
+Mint Wallpaper Studio 1.1.6.8
+
+- Fixed syntax regression in Scene debug/runtime logging code
+
+Mint Wallpaper Studio 1.1.6.7
+
+- Added restart prompt after Scene backend installation
+- Added better runtime debug information when Scene startup fails
+
+Mint Wallpaper Studio 1.1.6.5
+
+- Improved Scene backend detection paths and restart behavior
+
+Mint Wallpaper Studio 1.1.6.4
+
+- Scene installer retries failed CEF downloads automatically
+- Clears partial/truncated CEF archives before rebuild
+- Restarts Mint Wallpaper Studio automatically after successful backend install
+
+Mint Wallpaper Studio 1.1.6.1
+
+- Fixed Scene backend installer crash caused by shell variable braces inside Python f-string.
+- Installer script now launches correctly when selecting a Scene wallpaper without linux-wallpaperengine installed.
+
+Mint Wallpaper Studio 1.1.3
+
+- Added guided Scene backend installer button for linux-wallpaperengine
+- Unsupported Scene wallpapers now offer direct backend installation from the preview pane
+- Refreshes Scene availability after launching the installer
+
 Mint Wallpaper Studio 1.1.0
 
 Final public release build based on the stabilized 1.0.41.x series.
@@ -10,125 +150,8 @@ Highlights
 - Improved tray menu layout and playback controls
 - Improved settings window stability and visibility logic
 
-Mint Wallpaper Studio 1.0.41.41
+1.1.8.10
 
-- Trigger Random Now immediately when monitor mode changes inside Settings, not only from main UI or after save.
-
-Mint Wallpaper Studio 1.0.41.39
-
-- Safe Applications tab polish built on top of 1.0.41.37
-- Added a dedicated Prefix path row with Copy and Open Folder buttons
-- Kept the existing Options window layout intact so Save/Cancel remain visible
-- Simplified the Applications support text and removed the unused placeholder section
-
-1.0.41.37
-- Applications tab: added Winetricks and winecfg shortcuts for the managed Wine prefix.
-- Added buttons to open the prefix folder, open a terminal in the prefix, and copy the prefix path.
-
-1.0.41.35
-- Refresh pause button state after wallpaper apply so image -> video and mixed media transitions update the UI reliably.
-
-Mint Wallpaper Studio 1.0.41.17
-
-- polished custom dark message boxes with clearer layouts
-- added matching symbols/icons for info, warning, error, question and text prompt dialogs
-- improved yes/no dialog sizing to avoid oversized empty space on short messages
-- kept long instance/process dialogs scrollable for large process lists
-
-Mint Wallpaper Studio 1.0.41.11
-- Fixed monitor-mode refresh so Auto Change keeps updating when switching Same ↔ Different ↔ Stretch repeatedly.
-- Remember the per-monitor Auto Change view choice when temporarily leaving Different per monitor mode.
-- Restyled per-monitor Auto Change tabs to match the dark options UI and removed the bright white notebook look.
-
-1.0.41.2
-- Fixed Options window initialization order so monitor mode controls no longer break the dialog or leave tabs incomplete.
-- Restored the Options window sizing closer to 1.0.37.2 to avoid hidden Save/Cancel buttons.
-- Kept the newer audio-save, mixed-media-per-monitor, and primary-monitor application targeting fixes.
-- Clarified in the Applications tab that application wallpapers are primary-monitor only and not stretched across all monitors.
-
-1.0.40
-- Applications forced to primary monitor target and target box refresh improved.
-
-v1.0.38
-- Keep the 1.0.37.2 settings layout and continue with functional fixes.
-- Improve per-monitor media application so image/video combinations no longer overwrite each other as easily.
-- Restrict application targets more clearly to the primary monitor in per-monitor mode.
-- Keep per-monitor image backgrounds when changing only one monitor.
-
-1.0.30
-- Audio can now be limited to selected monitors; default is primary monitor only.
-- Playlist Target no longer shows Shared target in Different per monitor mode.
-- Main toolbar sizing and Options layout adjusted for monitor controls.
-
-v1.0.28
-- Added first real multi-monitor controller paths for pictures and videos.
-- Different per monitor can now launch separate per-monitor video instances.
-- Stretch across monitors now builds a stretched image across the full desktop area.
-- Auto Change and Playlist order now build per-monitor layouts when Different per monitor is active.
-
-1.0.25
-- Options window widened and tab styling refined
-- More compact, user-friendly option text
-
-v1.0.19
-- Improved Options window layout with larger default size and scrollable content.
-- Managed application runtime now prefers Wine Staging when available.
-- Application runtime setup now also tries DXVK, corefonts, Win10 mode, and extra compatibility defaults.
-- Runtime summary shows more detail about Wine mode and helper components.
-
-Version 1.0.17
-- Improved application wallpaper switching robustness for Wine wallpapers
-- Waits for the previous Wine prefix/processes to fully close before relaunch
-- Stronger desktop-window enforcement after application launch
-
-Version 1.0.15
-- Added deep fullscreen detection diagnostics to log active window IDs, candidate windows, window properties, geometry, and exact match/skip reasons.
-- Helps pinpoint why fullscreen windows are still rejected during live auto-pause checks.
-
-Version 1.0.13
-- Replaced Tk after-based fullscreen pause polling with a dedicated background monitor thread.
-- Added explicit fullscreen monitor startup logging and state transitions in the app debug log.
-- Improved fullscreen pause/resume reliability when the UI thread is busy.
-
-Version 1.0.11
-- Added fullscreen pause/resume debug logging to ~/.config/mint_wallpaper_studio/debug.log
-- Hardened mpv IPC reply handling for pause/resume commands
-- Logged fullscreen pause state transitions and pause/resume results
-
-1.0.10
-- fullscreen detection improved for monitor-filling game windows with top-offset client areas
-- application wallpaper switching now uses a dedicated Wine prefix and waits for wineserver shutdown
-- reduced leftover Wine window issues when switching application wallpapers
-
-v1.0.8
-- Fixed Debian package structure regression from 1.0.7.
-- Improved fullscreen detection for pause/resume on X11 using active-window and monitor-coverage checks.
-- Hardened mpv IPC pause/resume command retries.
-- Reduced Wine application flicker and repeatedly fit application wallpapers to the desktop size.
-
-Version 1.0.5
-- Improved application wallpaper support for Wine-based .exe wallpapers by pushing the window below normal windows, making it sticky, skipping taskbar/pager, and sizing it to the desktop.
-- Improved fullscreen auto-pause detection on X11 by checking the active window state and monitor-sized windows, which helps games like Baldur's Gate 3 pause wallpaper audio more reliably.
-
-Version 1.0.4
-- Added application wallpaper support with .exe import, Wallpaper Engine application detection, and Wine launch support.
-- Added live mpv IPC volume/mute control for video wallpapers.
-
-Version 1.0.2
-- Fixed video audio slider reloading the wallpaper continuously while dragging.
-- Audio changes are now applied once after slider movement settles or when released.
-
-Mint Wallpaper Studio 1.0.0
-
-Highlights
-- Images, videos and HTML wallpapers
-- Wallpaper Engine sync with review popup
-- HTML desktop mode for web wallpapers
-- Tray/appindicator integration
-- Fullscreen auto-pause for video wallpapers
-- Playlist and random playback
-- Volume and mute controls
-- Linux Mint friendly desktop integration
-
-1.0.29
-- Fix monitor-mode video handling and auto-change behavior
+- Fixed a bug where changing monitor mode could make playlist/monitor entries appear as Off.
+- Shared -> Different per monitor now seeds monitor playlist states from the shared state.
+- Different per monitor -> Shared/Stretch now merges existing monitor states back into the shared state more safely.
