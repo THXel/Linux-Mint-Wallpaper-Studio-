@@ -5,13 +5,13 @@
 <h1 align="center">🟢 Mint Wallpaper Studio</h1>
 
 <p align="center">
-  A wallpaper manager for <b>Linux Mint</b> with support for images, videos, playlists, Wallpaper Engine import, HTML wallpapers, Wallpaper Engine Scenes, and experimental application wallpapers.
+  A wallpaper manager for <b>Linux Mint</b> with support for images, videos, playlists, Wallpaper Engine import, HTML wallpapers, Scene wallpapers, and experimental application wallpapers.
 </p>
 
 <p align="center">
   <a href="#overview">Overview</a> •
   <a href="#screenshots">Screenshots</a> •
-  <a href="#download--install">Download & Install</a> •
+  <a href="#install">Install</a> •
   <a href="#features">Features</a> •
   <a href="#wallpaper-engine">Wallpaper Engine</a> •
   <a href="#notes">Notes</a> •
@@ -29,7 +29,7 @@
 
 ## Overview
 
-**Mint Wallpaper Studio** is a wallpaper manager built for **Linux Mint**, focused on a clean workflow and practical support for both static and animated wallpapers.
+**Mint Wallpaper Studio** is a wallpaper manager built for **Linux Mint** with a focus on a clean workflow and practical support for both static and animated wallpapers.
 
 It supports:
 
@@ -46,20 +46,20 @@ It supports:
 - 🔄 Wallpaper Engine workshop import
 - 🧺 tray integration
 
+**Recommended environment:** **Linux Mint / Cinnamon / X11**
+
 ---
 
 ## Features
 
 ### Main features
 
-- Local image wallpapers
-- Local video wallpapers
+- Local image and video wallpapers
 - HTML wallpapers
 - Wallpaper Engine Scene support
 - Experimental application wallpapers
 - Wallpaper Engine import for compatible workshop items
-- Playlist support
-- Auto change / random switching
+- Playlists and random / automatic changing
 - Multi-monitor support
 - Per-monitor audio control
 - Fullscreen auto-pause
@@ -86,14 +86,14 @@ It supports:
 
 ---
 
-## Download & Install
+## Install
 
 Download the latest package from the GitHub Releases page:
 
 **GitHub Releases:**  
 https://github.com/THXel/Linux-Mint-Wallpaper-Studio-/releases
 
-### Install
+### Install package
 
 ```bash
 cd ~/Downloads
@@ -141,7 +141,7 @@ This includes:
 
 - Scene detection during sync
 - Scene import into the library
-- backend detection from inside the app
+- backend detection inside the app
 - in-app installation support for `linux-wallpaperengine`
 - automatic X11 / XRandR monitor detection
 
@@ -150,24 +150,13 @@ Scene wallpapers currently work in:
 - **Same on all monitors**
 - **Different per monitor**
 
-When **Stretch across monitors** is active and a Scene is selected through Auto Change, the app uses a temporary fallback to **Same on all monitors** for that Scene.
-
----
-
-## Notes
-
-- Best results are currently expected on **Linux Mint / Cinnamon / X11**
-- **Application wallpapers are experimental**
-- **Applications are currently primary-monitor only**
-- **HTML wallpapers currently work best with Stretch across monitors**
-- **Scene wallpapers do not use true Stretch across monitors**
-- Some Wallpaper Engine items may still be limited by Linux, X11, Wine, or desktop environment behavior
+When **Stretch across monitors** is active and Auto Change selects a Scene wallpaper, the app temporarily falls back to **Same on all monitors** for that Scene.
 
 ---
 
 ## Dependencies
 
-The package may require typical runtime tools such as:
+The package may require common runtime tools such as:
 
 - `python3`
 - `python3-tk`
@@ -187,19 +176,36 @@ Optional for application wallpapers:
 - `wine`
 - `winetricks`
 
+### External projects
+
+Mint Wallpaper Studio integrates with or depends on external projects such as:
+
+- [linux-wallpaperengine](https://github.com/Almamu/linux-wallpaperengine)
+- [mpv](https://mpv.io/)
+
+---
+
+## Notes
+
+- **Application wallpapers are experimental**
+- **Applications are currently primary-monitor only**
+- **HTML wallpapers currently work best with Stretch across monitors**
+- **Scene wallpapers do not use true Stretch across monitors**
+- Some Wallpaper Engine items may still be limited by Linux, X11, Wine, or desktop environment behavior
+
 ---
 
 ## Troubleshooting
 
-### Wallpaper does not play
+### A wallpaper does not play
 
 Check that the required playback tools are installed and that the wallpaper type is supported.
 
-### Wallpaper Engine item imports but does not work correctly
+### A Wallpaper Engine item imports but does not work correctly
 
 Some workshop items depend on unsupported Scene behavior, complex HTML logic, application runtimes, or Wine compatibility.
 
-### Tray icon is missing
+### The tray icon is missing
 
 Install appindicator support:
 
@@ -217,7 +223,7 @@ Check:
 - wallpaper type limitations
 - your X11 / Cinnamon monitor layout
 
-### Scene wallpaper does not start
+### A Scene wallpaper does not start
 
 Make sure `linux-wallpaperengine` is installed and available.
 
