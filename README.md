@@ -239,11 +239,7 @@ If you report a bug, please include:
 
 ## License
 
-Add your preferred license here, for example:
-
-- MIT
-- GPL-3.0
-- Apache-2.0
+This project is licensed under the MIT License. See the [LICENSE.MD](LICENSE.MD) file for details.
 
 ---
 
