@@ -97,13 +97,13 @@ https://github.com/THXel/Linux-Mint-Wallpaper-Studio-/releases
 
 ```bash
 cd ~/Downloads
-sudo apt install ./mint-wallpaper-studio_1.2.0.deb
+sudo apt install ./mint-wallpaper-studio_0.8.0.deb
 ```
 
 If needed:
 
 ```bash
-sudo dpkg -i mint-wallpaper-studio_1.2.0.deb
+sudo dpkg -i mint-wallpaper-studio_0.8.0.deb
 sudo apt -f install
 ```
 
