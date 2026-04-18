@@ -21,7 +21,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Linux-Mint-87CF3E?style=for-the-badge&logo=linuxmint&logoColor=white" alt="Linux Mint">
   <img src="https://img.shields.io/badge/Python-3.x-blue?style=for-the-badge&logo=python" alt="Python">
-  <img src="https://img.shields.io/badge/Version-1.2.0-green?style=for-the-badge" alt="Version 1.2.0">
+  <img src="https://img.shields.io/badge/Version-0.8.0-green?style=for-the-badge" alt="Version 1.2.0">
   <img src="https://img.shields.io/badge/Status-unstable-orange?style=for-the-badge" alt=Unstable">
 </p>
 
